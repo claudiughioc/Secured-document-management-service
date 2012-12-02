@@ -1,0 +1,47 @@
+<project name="3tema" default="client" basedir=".">
+	
+	<target name="clean">
+		<delete dir="bin"/>
+		<delete file="keystore.ks"/>
+	</target>
+
+	<target name="build">
+		<echo message="${line.separator}Tema 3 Sisteme de programe pentru retele de calculatoare
+			${line.separator}"/>
+		<echo message="Compiling..."/>
+		<mkdir dir="bin/"/>
+		<javac srcdir="." destdir="bin" nowarn="on" debug="true" optimize="true" verbose="false"/>
+	</target>
+
+	<target name="keystore" depends="build">
+		<echo message="Creating fresh keystore"/>
+		<exec command="keytool -genkey -alias student -keyalg DSA -keysize 1024 -keystore keystore.ks -keypass password 
+		-storepass password -dname &quot;CN=Claudiu Ghioc, OU=UPB, O=UPB, C=RO&quot;"/>
+	</target>
+
+	<target name="server" depends="keystore">
+		<echo message="Running the server..."/>
+		<java classname="server.Server" fork="true">
+			<classpath>
+		    	<pathelement path="bin/"/>
+			</classpath>
+			<jvmarg value="-DKeyStore=keystore.ks"/>
+			<jvmarg value="-DKeyStorePass=password"/>
+			<arg value="777"/>
+		</java>
+	</target>
+
+	<target name="client" depends="keystore">
+		<echo message="Running the client..."/>
+		<java classname="client.Client" fork="true">
+			<classpath>
+	    		<pathelement path="bin/"/>
+			</classpath>
+			<jvmarg value="-DKeyStore=keystore.ks"/>
+			<jvmarg value="-DKeyStorePass=password"/>
+			<arg value="localhost"/>
+			<arg value="777"/>
+	</java>
+	</target>
+
+</project>
