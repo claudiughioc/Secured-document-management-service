@@ -10,6 +10,7 @@ import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.security.KeyStore;
+import java.security.cert.Certificate;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
@@ -40,6 +41,7 @@ public class Server implements Runnable {
 	// conextiunilor cu fiecare client
 	final protected ExecutorService pool;
 	final private ThreadFactory tfactory;
+	private Certificate CACertificate = null;
 	
 	/**
 	 * Constructor.
@@ -64,33 +66,42 @@ public class Server implements Runnable {
 	 * @return a SSL Socket bound on port specified
 	 * @throws IOException
 	 */
-	public static SSLServerSocket createServerSocket(int port, String keystore, String password) throws IOException {
+	public SSLServerSocket createServerSocket(int port, String keystore, String password) throws IOException {
 		SSLServerSocketFactory ssf = null;
 		SSLServerSocket ss = null;
 		try {
 			SSLContext ctx;
 			KeyManagerFactory kmf;
 			KeyStore ks;
-			ctx = SSLContext.getInstance("TLS");
-			kmf = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
+			
+			// Load the keystore
 			ks = KeyStore.getInstance(KeyStore.getDefaultType());
 			FileInputStream is = new FileInputStream(keystore);
 			ks.load(is, password.toCharArray());
-			kmf.init(ks, password.toCharArray());
 			if (logger.isLoggable(Level.INFO))
 				logger.log(Level.INFO, "Server keys loaded");
 
+			// Obtain the key manager factory
+			kmf = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
+			kmf.init(ks, password.toCharArray());
+			
+			// Initialize the SSL Context
+			ctx = SSLContext.getInstance("TLS");
 			ctx.init(kmf.getKeyManagers(), null, new java.security.SecureRandom());
-			ssf = ctx.getServerSocketFactory();
+
+			// get the certificate of this server's certification authority
+			this.CACertificate = ks.getCertificate("certification_authority");
+			
+			//Create the SSL Socket
 			if (logger.isLoggable(Level.INFO)) {
 				logger.log(Level.INFO, "Creating SSocket");
 			}
+			ssf = ctx.getServerSocketFactory();
 			ss = (SSLServerSocket) ssf.createServerSocket();
 
 			if (logger.isLoggable(Level.INFO)) {
 				logger.log(Level.INFO, "SSocket created!");
 			}
-
 			if (logger.isLoggable(Level.INFO)) {
 				logger.log(Level.INFO, "SSocket binding on port " + port);
 			}
