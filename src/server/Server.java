@@ -21,6 +21,7 @@ import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLServerSocket;
 import javax.net.ssl.SSLServerSocketFactory;
+import javax.net.ssl.TrustManagerFactory;
 
 /**
  * O clasa server ce accepta conexiuni TLS.
@@ -84,10 +85,14 @@ public class Server implements Runnable {
 			// Obtain the key manager factory
 			kmf = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
 			kmf.init(ks, password.toCharArray());
-			
+
+			// Get a Trust Manager
+			TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance("SunX509");
+			trustManagerFactory.init(ks);
+
 			// Initialize the SSL Context
 			ctx = SSLContext.getInstance("TLS");
-			ctx.init(kmf.getKeyManagers(), null, new java.security.SecureRandom());
+			ctx.init(kmf.getKeyManagers(), trustManagerFactory.getTrustManagers(), new java.security.SecureRandom());
 
 			// get the certificate of this server's certification authority
 			this.CACertificate = ks.getCertificate("certification_authority");

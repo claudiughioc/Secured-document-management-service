@@ -18,6 +18,7 @@ import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLSocket;
 import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.TrustManager;
+import javax.net.ssl.TrustManagerFactory;
 
 public class Client extends Thread{
 	/** Logger used by this class */
@@ -60,12 +61,16 @@ public class Client extends Thread{
 		}
 		kmf.init(ks,storepswd);
 		
+		// Get a Trust Manager Factory
+		TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance("SunX509");
+		trustManagerFactory.init(ks);
+
 		// Create the SSL context
 		ctx = SSLContext.getInstance("TLS");
-		ctx.init(kmf.getKeyManagers(), new TrustManager[] {new CustomTrustManager()}, null);
+		ctx.init(kmf.getKeyManagers(), trustManagerFactory.getTrustManagers(), null);
 		this.CACertificate = ks.getCertificate("certification_authority");
 		
-		
+		// Create the SSL Socket
 		SSLSocketFactory ssf = ctx.getSocketFactory();
 		s = (SSLSocket)ssf.createSocket();
 		s.connect(new InetSocketAddress(address, port));
