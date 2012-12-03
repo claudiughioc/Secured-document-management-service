@@ -2,13 +2,15 @@ package client;
 
 import java.io.BufferedReader;
 import java.io.FileInputStream;
+import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.net.InetSocketAddress;
+import java.security.cert.Certificate;
+import java.security.cert.X509Certificate;
 import java.security.KeyStore;
 import java.util.Scanner;
-import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import javax.net.ssl.KeyManagerFactory;
@@ -22,37 +24,80 @@ public class Client extends Thread{
 	private static final transient Logger logger = Logger.getLogger(Client.class.getName());
 
 	private BufferedReader br;
+	private String name;
 	private PrintWriter pw;
 	private SSLSocket s;
+	private Certificate CACertificate = null;
+	
+	public Client(String hostname, int port) {
+		this.name = "Claudiu";
+		try {
+		createSSLConnection(hostname, port);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
 	
 	public void createSSLConnection (String address, int port) throws Exception{
-
 		// set up key manager to do server authentication
 		String store=System.getProperty("KeyStore");
 		String passwd =System.getProperty("KeyStorePass");
-
 		SSLContext ctx;
 		KeyManagerFactory kmf;
 		KeyStore ks;
 		char[] storepswd = passwd.toCharArray(); 
-		ctx = SSLContext.getInstance("TLS");
-
+		
+		// Load the keystore
+		ks = KeyStore.getInstance("JKS");
+		ks.load(new FileInputStream(store), storepswd);
+		
+		// Create the KeyManagerFactory
 		/* IBM or Sun vm ? */
 		if ( System.getProperty("java.vm.vendor").toLowerCase().indexOf("ibm") != -1 ){
 			kmf = KeyManagerFactory.getInstance("IBMX509","IBMJSSE");
 		} else {
 			kmf = KeyManagerFactory.getInstance("SunX509");
 		}
-
-		ks = KeyStore.getInstance("JKS");
-
-		ks.load(new FileInputStream(store), storepswd);
 		kmf.init(ks,storepswd);
+		
+		// Create the SSL context
+		ctx = SSLContext.getInstance("TLS");
 		ctx.init(kmf.getKeyManagers(), new TrustManager[] {new CustomTrustManager()}, null);
+		this.CACertificate = ks.getCertificate("certification_authority");
+		
+		
 		SSLSocketFactory ssf = ctx.getSocketFactory();
 		s = (SSLSocket)ssf.createSocket();
-
 		s.connect(new InetSocketAddress(address, port));
+		
+		try {
+			s.startHandshake();	
+		} catch (IOException e) {
+			logger.severe("[" + this.name + "] Failed to complete the handshake");
+			e.printStackTrace();
+			return;
+		}
+		logger.info("[" + this.name + "] Successful handshake");
+		X509Certificate[] peerCertificates = null;
+		try {
+			peerCertificates = (X509Certificate[])((s).getSession()).getPeerCertificates();
+			if (peerCertificates.length < 2) {
+				logger.severe("'peerCertificates' should contain at least two certificates");
+				return;
+			}
+		} catch (Exception e) {
+			logger.severe("[" + this.name + "] Failed to get peer certificates");
+			e.printStackTrace();
+			return;
+		}
+		if (CACertificate.equals(peerCertificates[1])) {
+			logger.info("[" + this.name + "] The peer's CA certificate matches this client's CA certificate");
+		}
+		else {
+			logger.severe("[" + this.name + "] The peer's CA certificate doesn't match this client's CA certificate");
+			return;
+		}
+		
 
 		pw = new PrintWriter(new OutputStreamWriter(s.getOutputStream()));
 		br = new BufferedReader(new InputStreamReader(s.getInputStream()));
@@ -61,13 +106,6 @@ public class Client extends Thread{
 
 	
 	
-	public Client(String hostname, int port) {
-		try {
-		createSSLConnection(hostname, port);
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
-	}
 	
 	public boolean parseCommand(String command) {
 		if (command.equals("quit") || command.equals("exit")) {

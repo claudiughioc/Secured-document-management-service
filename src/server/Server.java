@@ -50,6 +50,7 @@ public class Server implements Runnable {
 		// set up key manager to do server authentication
 		String store=System.getProperty("KeyStore");
 		String passwd =System.getProperty("KeyStorePass");
+		System.out.println("Password = " + passwd);
 		ss = createServerSocket(port, store, passwd);
 		tfactory = new DaemonThreadFactory();
 		pool = Executors.newCachedThreadPool(tfactory);		
@@ -210,9 +211,6 @@ public class Server implements Runnable {
 				} catch (Exception e) {
 					break;
 				}
-			}
-			if (logger.isLoggable(Level.INFO)) {
-				logger.log(Level.INFO, "L server thread for client dying");
 			}
 			System.out.println("Server thread for client is dying");
 			close();
