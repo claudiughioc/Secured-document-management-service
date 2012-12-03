@@ -21,53 +21,40 @@ import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLServerSocket;
 import javax.net.ssl.SSLServerSocketFactory;
 
-public class Server implements Runnable{
-	private static final transient Logger logger = Logger.getLogger("server.Server");
+/**
+ * O clasa server ce accepta conexiuni TLS.
+ * @author Dobre Ciprian
+ *
+ */
+public class Server implements Runnable {
+
+	/** Logger used by this class */
+	private static final transient Logger logger = Logger.getLogger("capV.example3.Server");
+	
+	// variabila ce este folosita pentru testarea conditiei de oprire
 	protected volatile boolean hasToRun = true;
-	// The Server socket
+	// socketul server
 	protected ServerSocket ss = null;
+	
+	// un pool de threaduri ce este folosit pentru executia secventelor de operatii corespunzatoare
+	// conextiunilor cu fiecare client
 	final protected ExecutorService pool;
 	final private ThreadFactory tfactory;
-
-	public Server(int port) throws IOException {
-		String store = System.getProperty("KeyStore");
-		String passwd = System.getProperty("KeyStorePass");
+	
+	/**
+	 * Constructor.
+	 * @param port Portul pe care va asculta serverul
+	 * @throws Exception
+	 */
+	public Server(int port) throws Exception {
+		// set up key manager to do server authentication
+		String store=System.getProperty("KeyStore");
+		String passwd =System.getProperty("KeyStorePass");
 		ss = createServerSocket(port, store, passwd);
 		tfactory = new DaemonThreadFactory();
-		pool = Executors.newCachedThreadPool(tfactory);
+		pool = Executors.newCachedThreadPool(tfactory);		
 	}
-
-	/**
-	 * Metoda run ... accepta conexiuni si initiaza noi threaduri pentru fiecare conexiune in parte
-	 */
-	public void run() {
-		if (logger.isLoggable(Level.INFO))
-			logger.log(Level.INFO, "TLSServerSocket entering main loop ... ");
-		while (hasToRun) {
-			try {
-				Socket s = ss.accept();
-				s.setTcpNoDelay(true);
-				//add the client connection to connection pool
-				pool.execute(new ClientThread(s));
-				if (logger.isLoggable(Level.INFO))
-					logger.log(Level.INFO, "New client connection added to connection-pool",s);
-			} catch (Throwable t) {
-				t.printStackTrace();
-			}
-		}
-	}
-
-	/**
-	 * Metoda poate fi folosita pentru oprirea serverului
-	 */
-	public void stop() {
-		hasToRun = false;
-		try {
-			ss.close();
-		} catch (Exception ex) {}
-		ss = null;
-	}
-
+	
 	/**
 	 * Metoda ce creaza un nou server socket folosind un anumit keystore si parola
 	 * @param port: port to listen on
@@ -89,36 +76,36 @@ public class Server implements Runnable{
 			FileInputStream is = new FileInputStream(keystore);
 			ks.load(is, password.toCharArray());
 			kmf.init(ks, password.toCharArray());
-			if (logger.isLoggable(Level.FINER))
-				logger.log(Level.FINER, "Server keys loaded");
+			if (logger.isLoggable(Level.INFO))
+				logger.log(Level.INFO, "Server keys loaded");
 
 			ctx.init(kmf.getKeyManagers(), null, new java.security.SecureRandom());
 			ssf = ctx.getServerSocketFactory();
-			if (logger.isLoggable(Level.FINER)) {
-				logger.log(Level.FINER, "Creating SSocket");
+			if (logger.isLoggable(Level.INFO)) {
+				logger.log(Level.INFO, "Creating SSocket");
 			}
 			ss = (SSLServerSocket) ssf.createServerSocket();
 
-			if (logger.isLoggable(Level.FINER)) {
-				logger.log(Level.FINER, "SSocket created!");
+			if (logger.isLoggable(Level.INFO)) {
+				logger.log(Level.INFO, "SSocket created!");
 			}
-			if (logger.isLoggable(Level.FINER)) {
-				logger.log(Level.FINER, "SSocket binding on port " + port);
+
+			if (logger.isLoggable(Level.INFO)) {
+				logger.log(Level.INFO, "SSocket binding on port " + port);
 			}
 			ss.bind(new InetSocketAddress(port));
-			if (logger.isLoggable(Level.FINER)) {
-				logger.log(Level.FINER, "SSocket bounded on port " + port);
+			if (logger.isLoggable(Level.INFO)) {
+				logger.log(Level.INFO, "SSocket bounded on port " + port);
 			}
-			// this socket will not try to authenticate clients based on X.509 Certificates         
+			// this socket will not try to authenticate clients based on X.509 Certificates			
 			ss.setNeedClientAuth(false);
-			if (logger.isLoggable(Level.FINER)) {
-				logger.log(Level.FINER, "SSocket FINISHED ok! Bounded on " + port);
+			if (logger.isLoggable(Level.INFO)) {
+				logger.log(Level.INFO, "SSocket FINISHED ok! Bounded on " + port);
 			}
-			System.out.println("SSocket FINISHED ok! Bounded on " + port);
 
 		} catch (Throwable t) {
-			if (logger.isLoggable(Level.FINER)) {
-				logger.log(Level.FINER, "Got Exception", t);
+			if (logger.isLoggable(Level.INFO)) {
+				logger.log(Level.INFO, "Got Exception", t);
 			}
 			t.printStackTrace();
 			throw new IOException(t.getMessage());
@@ -126,8 +113,38 @@ public class Server implements Runnable{
 		return ss;
 	}
 
+	/**
+	 * Metoda run ... accepta conexiuni si initiaza noi threaduri pentru fiecare conexiune in parte
+	 */
+	public void run() {
+		if (logger.isLoggable(Level.INFO))
+			logger.log(Level.INFO, "TLSServerSocket entering main loop ... ");
+		while (hasToRun) {
+			try {
+				Socket s = ss.accept();								
+				s.setTcpNoDelay(true);	
+				//add the client connection to connection pool
+				pool.execute(new ClientThread(s));
+				if (logger.isLoggable(Level.INFO))
+					logger.log(Level.INFO, "New client connection added to connection-pool",s);
+			} catch (Throwable t) {
+				t.printStackTrace();
+			}
+		}
+	}
 
-	/** 
+	/**
+	 * Metoda poate fi folosita pentru oprirea serverului
+	 */
+	public void stop() {
+		hasToRun = false;
+		try {
+			ss.close();
+		} catch (Exception ex) {}
+		ss = null;
+	}
+	
+	/**
 	 * Custom thread factory used in connection pool
 	 */
 	private final class DaemonThreadFactory implements ThreadFactory {
@@ -135,15 +152,16 @@ public class Server implements Runnable{
 			Thread thread = new Thread(r);
 			thread.setDaemon(true);
 			return thread;
-		}   
+		}
 	}
-
+	
 	/**
 	 * Clasa ce implementeaza functionalitatea conexiunii cu un anumit client
+	 * @author Dobre Ciprian
 	 *
 	 */
 	private final class ClientThread implements Runnable {
-
+		
 		private BufferedReader br;
 		private PrintWriter pw;
 		private Socket s;
@@ -155,60 +173,65 @@ public class Server implements Runnable{
 				this.s = s;
 			} catch (Exception e) { }
 		}
-
+		
 		public void close() {
 			if (br != null){
-				try {
-					br.close();
-				}catch(Throwable tt){
-				}
-			}
-			if (pw != null){
-				try {
-					pw.close();
-				}catch(Throwable tt){
-				}
-			}
-			if ( s != null){
-				try {
-					s.close();             
-				} catch (Throwable t){
-				}
-			}
+	            try {
+	                br.close();
+	            }catch(Throwable tt){
+	            }
+	        }
+	        if (pw != null){
+	            try {
+	                pw.close();
+	            }catch(Throwable tt){
+	            }
+	        }
+	        if ( s != null){
+	            try {
+	                s.close();
+	            } catch (Throwable t){
+	            }
+	        }
 		}
 
 		public void run() {
 			// run indefinetely until exception
-			System.out.println("Running the thread for new client");
 			while (true) {
 				try {
 					String s = br.readLine();
-					System.out.println("Got from client " + s);
-					// simulate processing
+					if (s == null)
+						throw new NullPointerException();
+					
+					processCommandFromClient(s);
+					logger.info("Process cmd " + s);
 					pw.println("executed ok "+s);
 					pw.flush();
 				} catch (Exception e) {
 					break;
 				}
 			}
+			if (logger.isLoggable(Level.INFO)) {
+				logger.log(Level.INFO, "L server thread for client dying");
+			}
+			System.out.println("Server thread for client is dying");
 			close();
 		}
 	}
 
-
-
-
-	public static void main(String [] args) {
-		System.out.println("Starting the server");
+	public void processCommandFromClient(String s) {
+		
+	}
+	
+	public static void main(String args[]) {
 		if (args == null || args.length < 1) {
-			System.out.println("Introduce the server's port");
+			System.out.println("Nu a fost furnizat ca argument portul");
 			return;
 		}
-
-		int port = Integer.parseInt(args[0]);
 		try {
+			int port = Integer.parseInt(args[0]);
 			(new Thread(new Server(port))).start();
-		} catch (IOException e) {
+		} catch (Exception e) {
 			e.printStackTrace();
 		}
 	}
