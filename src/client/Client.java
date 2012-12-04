@@ -7,9 +7,9 @@ import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.net.InetSocketAddress;
+import java.security.KeyStore;
 import java.security.cert.Certificate;
 import java.security.cert.X509Certificate;
-import java.security.KeyStore;
 import java.util.Scanner;
 import java.util.logging.Logger;
 
@@ -17,12 +17,11 @@ import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLSocket;
 import javax.net.ssl.SSLSocketFactory;
-import javax.net.ssl.TrustManager;
 import javax.net.ssl.TrustManagerFactory;
 
 public class Client extends Thread{
 	/** Logger used by this class */
-	private static final transient Logger logger = Logger.getLogger(Client.class.getName());
+	private static Logger logger = Logger.getLogger(Client.class.getName());
 
 	private BufferedReader br;
 	private String name;

@@ -1,16 +1,13 @@
 package server;
 
-import java.io.BufferedReader;
 import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.OutputStreamWriter;
-import java.io.PrintWriter;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.security.KeyStore;
 import java.security.cert.Certificate;
+import java.security.cert.X509Certificate;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
@@ -19,13 +16,13 @@ import java.util.logging.Logger;
 
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLSocket;
 import javax.net.ssl.SSLServerSocket;
 import javax.net.ssl.SSLServerSocketFactory;
 import javax.net.ssl.TrustManagerFactory;
 
 /**
  * O clasa server ce accepta conexiuni TLS.
- * @author Dobre Ciprian
  *
  */
 public class Server implements Runnable {
@@ -35,14 +32,17 @@ public class Server implements Runnable {
 	
 	// variabila ce este folosita pentru testarea conditiei de oprire
 	protected volatile boolean hasToRun = true;
+
 	// socketul server
 	protected ServerSocket ss = null;
 	
-	// un pool de threaduri ce este folosit pentru executia secventelor de operatii corespunzatoare
+	// un pool de threaduri ce este folosit pentru executia
+	// secventelor de operatii corespunzatoare
 	// conextiunilor cu fiecare client
 	final protected ExecutorService pool;
 	final private ThreadFactory tfactory;
 	private Certificate CACertificate = null;
+	private String name;
 	
 	/**
 	 * Constructor.
@@ -50,11 +50,8 @@ public class Server implements Runnable {
 	 * @throws Exception
 	 */
 	public Server(int port) throws Exception {
-		// set up key manager to do server authentication
-		String store=System.getProperty("KeyStore");
-		String passwd =System.getProperty("KeyStorePass");
-		System.out.println("Password = " + passwd);
-		ss = createServerSocket(port, store, passwd);
+		this.name = Server.class.getName();
+		ss = createServerSocket(port, System.getProperty("KeyStore"), System.getProperty("KeyStorePass"));
 		tfactory = new DaemonThreadFactory();
 		pool = Executors.newCachedThreadPool(tfactory);		
 	}
@@ -114,8 +111,7 @@ public class Server implements Runnable {
 			if (logger.isLoggable(Level.INFO)) {
 				logger.log(Level.INFO, "SSocket bounded on port " + port);
 			}
-			// this socket will not try to authenticate clients based on X.509 Certificates			
-			ss.setNeedClientAuth(false);
+			ss.setNeedClientAuth(true);
 			if (logger.isLoggable(Level.INFO)) {
 				logger.log(Level.INFO, "SSocket FINISHED ok! Bounded on " + port);
 			}
@@ -131,17 +127,50 @@ public class Server implements Runnable {
 	}
 
 	/**
-	 * Metoda run ... accepta conexiuni si initiaza noi threaduri pentru fiecare conexiune in parte
+	 * Metoda run: accepta conexiuni si initiaza noi threaduri pentru fiecare conexiune in parte
 	 */
 	public void run() {
 		if (logger.isLoggable(Level.INFO))
 			logger.log(Level.INFO, "TLSServerSocket entering main loop ... ");
 		while (hasToRun) {
 			try {
-				Socket s = ss.accept();								
-				s.setTcpNoDelay(true);	
-				//add the client connection to connection pool
-				pool.execute(new ClientThread(s));
+				Socket s = ss.accept();	
+				s.setTcpNoDelay(true);
+				try {
+					((SSLSocket) s).startHandshake();
+				} catch (IOException e) {
+					logger.severe("[" + this.name + "] Failed to complete a handshake");
+					e.printStackTrace();
+					continue;	
+				}
+				logger.info("[" + this.name + "] Successful handshake");
+				
+				// Get the client's certificate
+				X509Certificate[] peerCertificates = null;
+				try {
+					peerCertificates = (X509Certificate[])(((SSLSocket) s).getSession()).getPeerCertificates();
+					if (peerCertificates.length < 2) {
+						logger.severe("'peerCertificates' should contain at least two certificates");
+						continue;
+					}
+				} catch (Exception e) {
+					logger.severe("[" + this.name + "] Failed to get peer certificates");
+					e.printStackTrace();
+					continue;
+				}
+				
+				// Check if the client's certificate has the same CA
+				if (CACertificate.equals(peerCertificates[1])) {
+					logger.info("[" + this.name + "] The peer's CA certificate matches this server's CA certificate");
+				}
+				else {
+					logger.severe("[" + this.name + "] The peer's CA certificate doesn't match this server's CA certificate");
+					continue;
+				}
+					
+				// Add the client connection to connection pool
+				String clientDN = peerCertificates[0].getSubjectX500Principal().getName();
+				pool.execute(new ClientThread(s, clientDN));
 				if (logger.isLoggable(Level.INFO))
 					logger.log(Level.INFO, "New client connection added to connection-pool",s);
 			} catch (Throwable t) {
@@ -159,82 +188,6 @@ public class Server implements Runnable {
 			ss.close();
 		} catch (Exception ex) {}
 		ss = null;
-	}
-	
-	/**
-	 * Custom thread factory used in connection pool
-	 */
-	private final class DaemonThreadFactory implements ThreadFactory {
-		public Thread newThread(Runnable r) {
-			Thread thread = new Thread(r);
-			thread.setDaemon(true);
-			return thread;
-		}
-	}
-	
-	/**
-	 * Clasa ce implementeaza functionalitatea conexiunii cu un anumit client
-	 * @author Dobre Ciprian
-	 *
-	 */
-	private final class ClientThread implements Runnable {
-		
-		private BufferedReader br;
-		private PrintWriter pw;
-		private Socket s;
-
-		public ClientThread(Socket s) {
-			try {
-				pw = new PrintWriter(new OutputStreamWriter(s.getOutputStream()));
-				br = new BufferedReader(new InputStreamReader(s.getInputStream()));
-				this.s = s;
-			} catch (Exception e) { }
-		}
-		
-		public void close() {
-			if (br != null){
-	            try {
-	                br.close();
-	            }catch(Throwable tt){
-	            }
-	        }
-	        if (pw != null){
-	            try {
-	                pw.close();
-	            }catch(Throwable tt){
-	            }
-	        }
-	        if ( s != null){
-	            try {
-	                s.close();
-	            } catch (Throwable t){
-	            }
-	        }
-		}
-
-		public void run() {
-			// run indefinetely until exception
-			while (true) {
-				try {
-					String s = br.readLine();
-					if (s == null)
-						throw new NullPointerException();
-					
-					processCommandFromClient(s);
-					logger.info("Process cmd " + s);
-					pw.println("executed ok "+s);
-					pw.flush();
-				} catch (Exception e) {
-					break;
-				}
-			}
-			System.out.println("Server thread for client is dying");
-			close();
-		}
-	}
-
-	public void processCommandFromClient(String s) {
-		
 	}
 	
 	public static void main(String args[]) {
