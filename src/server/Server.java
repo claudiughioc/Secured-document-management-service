@@ -1,5 +1,6 @@
 package server;
 
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -16,9 +17,9 @@ import java.util.logging.Logger;
 
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
-import javax.net.ssl.SSLSocket;
 import javax.net.ssl.SSLServerSocket;
 import javax.net.ssl.SSLServerSocketFactory;
+import javax.net.ssl.SSLSocket;
 import javax.net.ssl.TrustManagerFactory;
 
 /**
@@ -26,16 +27,19 @@ import javax.net.ssl.TrustManagerFactory;
  *
  */
 public class Server implements Runnable {
+	public static final String END_OF_MESSAGE = "###";
+	public static final String STORAGE_DIRECTORY = "resources/storage/";
+	public static Object writeLock = new Object();
 
 	/** Logger used by this class */
 	private static final transient Logger logger = Logger.getLogger("capV.example3.Server");
-	
+
 	// variabila ce este folosita pentru testarea conditiei de oprire
 	protected volatile boolean hasToRun = true;
 
 	// socketul server
 	protected ServerSocket ss = null;
-	
+
 	// un pool de threaduri ce este folosit pentru executia
 	// secventelor de operatii corespunzatoare
 	// conextiunilor cu fiecare client
@@ -43,7 +47,8 @@ public class Server implements Runnable {
 	final private ThreadFactory tfactory;
 	private Certificate CACertificate = null;
 	private String name;
-	
+	private File storage;
+
 	/**
 	 * Constructor.
 	 * @param port Portul pe care va asculta serverul
@@ -53,9 +58,13 @@ public class Server implements Runnable {
 		this.name = Server.class.getName();
 		ss = createServerSocket(port, System.getProperty("KeyStore"), System.getProperty("KeyStorePass"));
 		tfactory = new DaemonThreadFactory();
-		pool = Executors.newCachedThreadPool(tfactory);		
+		pool = Executors.newCachedThreadPool(tfactory);
+
+		// Open the directory of files
+		storage = new File(STORAGE_DIRECTORY);
+
 	}
-	
+
 	/**
 	 * Metoda ce creaza un nou server socket folosind un anumit keystore si parola
 	 * @param port: port to listen on
@@ -71,7 +80,7 @@ public class Server implements Runnable {
 			SSLContext ctx;
 			KeyManagerFactory kmf;
 			KeyStore ks;
-			
+
 			// Load the keystore
 			ks = KeyStore.getInstance(KeyStore.getDefaultType());
 			FileInputStream is = new FileInputStream(keystore);
@@ -93,7 +102,7 @@ public class Server implements Runnable {
 
 			// get the certificate of this server's certification authority
 			this.CACertificate = ks.getCertificate("certification_authority");
-			
+
 			//Create the SSL Socket
 			if (logger.isLoggable(Level.INFO)) {
 				logger.log(Level.INFO, "Creating SSocket");
@@ -144,7 +153,7 @@ public class Server implements Runnable {
 					continue;	
 				}
 				logger.info("[" + this.name + "] Successful handshake");
-				
+
 				// Get the client's certificate
 				X509Certificate[] peerCertificates = null;
 				try {
@@ -158,7 +167,7 @@ public class Server implements Runnable {
 					e.printStackTrace();
 					continue;
 				}
-				
+
 				// Check if the client's certificate has the same CA
 				if (CACertificate.equals(peerCertificates[1])) {
 					logger.info("[" + this.name + "] The peer's CA certificate matches this server's CA certificate");
@@ -167,10 +176,10 @@ public class Server implements Runnable {
 					logger.severe("[" + this.name + "] The peer's CA certificate doesn't match this server's CA certificate");
 					continue;
 				}
-					
+
 				// Add the client connection to connection pool
 				String clientDN = peerCertificates[0].getSubjectX500Principal().getName();
-				pool.execute(new ClientThread(s, clientDN));
+				pool.execute(new ClientThread(s, clientDN, storage));
 				if (logger.isLoggable(Level.INFO))
 					logger.log(Level.INFO, "New client connection added to connection-pool",s);
 			} catch (Throwable t) {
@@ -189,7 +198,7 @@ public class Server implements Runnable {
 		} catch (Exception ex) {}
 		ss = null;
 	}
-	
+
 	public static void main(String args[]) {
 		if (args == null || args.length < 1) {
 			System.out.println("Nu a fost furnizat ca argument portul");

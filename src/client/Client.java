@@ -1,9 +1,13 @@
 package client;
 
+import java.io.BufferedInputStream;
 import java.io.BufferedReader;
+import java.io.DataOutputStream;
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.net.InetSocketAddress;
@@ -19,11 +23,15 @@ import javax.net.ssl.SSLSocket;
 import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.TrustManagerFactory;
 
+import server.Server;
+
 public class Client extends Thread{
 	/** Logger used by this class */
 	private static Logger logger = Logger.getLogger(Client.class.getName());
 
+	private static final String CLIENT_DIRECTORY = "resources/files/";
 	private BufferedReader br;
+	private DataOutputStream dos;
 	private String name;
 	private PrintWriter pw;
 	private SSLSocket s;
@@ -102,7 +110,7 @@ public class Client extends Thread{
 			return;
 		}
 		
-
+		dos = new DataOutputStream(s.getOutputStream());
 		pw = new PrintWriter(new OutputStreamWriter(s.getOutputStream()));
 		br = new BufferedReader(new InputStreamReader(s.getInputStream()));
 
@@ -115,36 +123,76 @@ public class Client extends Thread{
 		if (command.equals("quit") || command.equals("exit")) {
 			return false;
 		}
-		if (command.equals("list"))
+		if (command.equals("list")) {
 			listCommand();
-		if (command.equals("download"))
-			downloadCommand();
-		if (command.equals("upload"))
-			uploadCommand();
-		if (command.equals("help"))
+			return true;
+		}
+		if (command.startsWith("download")) {
+			downloadCommand(command);
+			return true;
+		}
+		if (command.startsWith("upload")) {
+			uploadCommand(command);
+			return true;
+		}
+		if (command.equals("help")) {
 			help();
+			return true;
+		}
+		if (command.length() == 0)
+			return true;
+		System.out.println("Unknown command");
 		return true;
 	}
-
-	public void listCommand() {
-		System.out.println("Listing");
-		pw.println("list");
-		pw.flush();
-		
+	
+	public void waitResponse() {
 		try {
-			String resp = br.readLine();
-			logger.info("Resp from server " + resp);
-		} catch (Exception e) {
+			String message;
+			while (!(message = br.readLine()).equals(Server.END_OF_MESSAGE))
+				System.out.println(message);
+		} catch (IOException e) {
 			e.printStackTrace();
 		}
 	}
 
-	public void downloadCommand() {
-		System.out.println("Downloading...");
+	public void listCommand() {
+		pw.println("list");
+		pw.flush();
+		waitResponse();
 	}
 
-	public void uploadCommand() {
-		System.out.println("Uploading...");
+	public void downloadCommand(String command) {
+		String fileName = CLIENT_DIRECTORY + command.substring(9);
+		System.out.println("File to download " + fileName);
+		pw.println(command);
+		pw.flush();
+	}
+
+	public void uploadCommand(String command) {
+		// Get the file to upload
+		String fileName = CLIENT_DIRECTORY + command.substring(7);
+		System.out.println("File to upload " + fileName);
+		File file = new File(fileName);
+		
+		// Send the command
+		pw.println(command);
+		pw.flush();
+		
+		// Send the file
+		try {
+			byte[] mybytearray = new byte[(int) file.length()]; 
+			FileInputStream fis = new FileInputStream(file);  
+	        BufferedInputStream bis = new BufferedInputStream(fis);  
+	        bis.read(mybytearray, 0, mybytearray.length);
+	        
+	        dos.writeLong(mybytearray.length);
+	        dos.write(mybytearray, 0, mybytearray.length);  
+	        dos.flush();
+	        
+	        fis.close();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
 	}
 
 	public void help() {
@@ -181,6 +229,12 @@ public class Client extends Thread{
         if (pw != null){
             try {
                 pw.close();
+            }catch(Throwable tt){
+            }
+        }
+        if (dos != null){
+            try {
+                dos.close();
             }catch(Throwable tt){
             }
         }
