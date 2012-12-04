@@ -2,6 +2,7 @@ package server;
 
 import java.io.BufferedReader;
 import java.io.DataInputStream;
+import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -13,11 +14,14 @@ import java.net.Socket;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import common.FileTransport;
+
 public final class ClientThread implements Runnable {
 	private static Logger logger = Logger.getLogger(ClientThread.class.getName());
 	private BufferedReader br;
 	private PrintWriter pw;
 	private DataInputStream dis;
+	private DataOutputStream dos;
 	private Socket s;
 	private ClientDetails clientDetails;
 	private File storage;
@@ -27,6 +31,7 @@ public final class ClientThread implements Runnable {
 			pw = new PrintWriter(new OutputStreamWriter(s.getOutputStream()));
 			br = new BufferedReader(new InputStreamReader(s.getInputStream()));
 			dis = new DataInputStream(s.getInputStream());
+			dos = new DataOutputStream(s.getOutputStream());
 			this.s = s;
 		} catch (Exception e) { }
 		clientDetails = new ClientDetails(clientDN);
@@ -34,41 +39,39 @@ public final class ClientThread implements Runnable {
 		logger.info("New connection from " + clientDetails);
 	}
 
-	public void processCommandFromClient(String s) {
-		if (s.equals("list"))
+	/**
+	 * Receives a string representing the command from client
+	 * Processes the command
+	 * @param command
+	 */
+	public void processCommandFromClient(String command) {
+		if (command.equals("list"))
 			serverList();
-		if (s.startsWith("download"))
-			serverDownload(s);
-		if (s.startsWith("upload"))
-			serverUpload(s);
-	}
-
-	private void serverDownload(String command) {
-		String fileName = Server.STORAGE_DIRECTORY + command.substring(9);
-	}
-
-	private void serverUpload(String command) {
-		String fileName = Server.STORAGE_DIRECTORY + command.substring(7);
-		
-		// Get a lock to secure writing
-		synchronized(Server.writeLock) {
-			try {
-				OutputStream newFile = new FileOutputStream(fileName);
-				
-				// Get the length of the file and the bytes
-				long len = dis.readLong();
-				byte[] mybytearray = new byte[(int) len];  
-				dis.read(mybytearray, 0, (int)len);
-				
-				// Write the file and close
-				newFile.write(mybytearray, 0, (int)len);
-				newFile.close();
-			} catch (IOException e) {
-				e.printStackTrace();
-			}
+		if (command.startsWith("download")) {
+			String fileName = Server.STORAGE_DIRECTORY + command.substring(9);
+			
+			// Send the file to the client
+			pw.println(FileTransport.DENIED);
+			pw.flush();
+			FileTransport.sendFile(fileName, dos);
+			if (logger.isLoggable(Level.INFO))
+				logger.log(Level.INFO, "Successfully downloaded " + fileName);
 		}
-		if (logger.isLoggable(Level.INFO))
-			logger.log(Level.INFO, "Successfully uploaded " + fileName);
+		if (command.startsWith("upload")) {
+			String fileName = Server.STORAGE_DIRECTORY + command.substring(7);
+
+			// Get the file from the client
+			FileTransport.receiveFile(fileName, dis);
+			if (logger.isLoggable(Level.INFO))
+				logger.log(Level.INFO, "Successfully uploaded " + fileName);
+		}
+	}
+
+	/**
+	 * Send a file to the client of this server thread
+	 */
+	public void sendFileToClient(String fileName) {
+		
 	}
 
 	/**
@@ -107,6 +110,12 @@ public final class ClientThread implements Runnable {
         if (dis != null){
             try {
                 dis.close();
+            }catch(Throwable tt){
+            }
+        }
+        if (dos != null){
+            try {
+                dos.close();
             }catch(Throwable tt){
             }
         }

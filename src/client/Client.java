@@ -1,13 +1,11 @@
 package client;
 
-import java.io.BufferedInputStream;
 import java.io.BufferedReader;
+import java.io.DataInputStream;
 import java.io.DataOutputStream;
-import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.net.InetSocketAddress;
@@ -25,6 +23,8 @@ import javax.net.ssl.TrustManagerFactory;
 
 import server.Server;
 
+import common.FileTransport;
+
 public class Client extends Thread{
 	/** Logger used by this class */
 	private static Logger logger = Logger.getLogger(Client.class.getName());
@@ -32,11 +32,18 @@ public class Client extends Thread{
 	private static final String CLIENT_DIRECTORY = "resources/files/";
 	private BufferedReader br;
 	private DataOutputStream dos;
+	private DataInputStream dis;
 	private String name;
 	private PrintWriter pw;
 	private SSLSocket s;
 	private Certificate CACertificate = null;
 	
+	/**
+	 * Constructor for Client
+	 * Initialize connection to the server
+	 * @param hostname
+	 * @param port
+	 */
 	public Client(String hostname, int port) {
 		this.name = "Claudiu";
 		try {
@@ -46,6 +53,12 @@ public class Client extends Thread{
 		}
 	}
 	
+	/**
+	 * Create the SSL connection to the server
+	 * @param address
+	 * @param port
+	 * @throws Exception
+	 */
 	public void createSSLConnection (String address, int port) throws Exception{
 		// set up key manager to do server authentication
 		String store=System.getProperty("KeyStore");
@@ -111,14 +124,17 @@ public class Client extends Thread{
 		}
 		
 		dos = new DataOutputStream(s.getOutputStream());
+		dis = new DataInputStream(s.getInputStream());
 		pw = new PrintWriter(new OutputStreamWriter(s.getOutputStream()));
 		br = new BufferedReader(new InputStreamReader(s.getInputStream()));
 
 	} //createSSLConnection
 
-	
-	
-	
+	/**
+	 * Analyzes a command from the client
+	 * @param command
+	 * @return
+	 */
 	public boolean parseCommand(String command) {
 		if (command.equals("quit") || command.equals("exit")) {
 			return false;
@@ -145,6 +161,9 @@ public class Client extends Thread{
 		return true;
 	}
 	
+	/**
+	 * Wait a response from server
+	 */
 	public void waitResponse() {
 		try {
 			String message;
@@ -155,46 +174,63 @@ public class Client extends Thread{
 		}
 	}
 
+	/**
+	 * Processes the "list" command
+	 */
 	public void listCommand() {
 		pw.println("list");
 		pw.flush();
+		System.out.println("-- listing files on server");
 		waitResponse();
 	}
 
+	/**
+	 * Processes the "download" command
+	 * @param command
+	 */
 	public void downloadCommand(String command) {
+		// Get the file to download
 		String fileName = CLIENT_DIRECTORY + command.substring(9);
-		System.out.println("File to download " + fileName);
+		
+		// Send the command
 		pw.println(command);
 		pw.flush();
+		
+		// Receive the file if OK from server
+		try {
+			String message = br.readLine();
+			if (message.equals(FileTransport.OK))
+				FileTransport.receiveFile(fileName, dis);
+			else {
+				System.out.println("-- the download has been rejected by the server");
+				return;
+			}
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		System.out.println("-- downloaded to " + fileName);	
 	}
 
+	/**
+	 * Processes the "upload" command
+	 * @param command
+	 */
 	public void uploadCommand(String command) {
 		// Get the file to upload
 		String fileName = CLIENT_DIRECTORY + command.substring(7);
-		System.out.println("File to upload " + fileName);
-		File file = new File(fileName);
 		
 		// Send the command
 		pw.println(command);
 		pw.flush();
 		
 		// Send the file
-		try {
-			byte[] mybytearray = new byte[(int) file.length()]; 
-			FileInputStream fis = new FileInputStream(file);  
-	        BufferedInputStream bis = new BufferedInputStream(fis);  
-	        bis.read(mybytearray, 0, mybytearray.length);
-	        
-	        dos.writeLong(mybytearray.length);
-	        dos.write(mybytearray, 0, mybytearray.length);  
-	        dos.flush();
-	        
-	        fis.close();
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
+		FileTransport.sendFile(fileName, dos);
+		System.out.println("-- uploaded " + fileName);
 	}
 
+	/**
+	 * Display the help messages
+	 */
 	public void help() {
 		System.out.println("Available commands:");
 		System.out.println("list - lists all the available documents on the server");
@@ -203,6 +239,9 @@ public class Client extends Thread{
 		System.out.println("quit/exit - close the application");
 	}
 
+	/**
+	 * Main loop to parse commands
+	 */
 	public void run() {
 		String command = "";
 		Scanner scanner = new Scanner(System.in);
@@ -219,6 +258,9 @@ public class Client extends Thread{
 		close();
 	}
 	
+	/**
+	 * Close all the streams and the socket to the server
+	 */
 	public void close() {
 		if (br != null){
             try {
@@ -235,6 +277,12 @@ public class Client extends Thread{
         if (dos != null){
             try {
                 dos.close();
+            }catch(Throwable tt){
+            }
+        }
+        if (dis != null){
+            try {
+                dis.close();
             }catch(Throwable tt){
             }
         }
