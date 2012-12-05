@@ -34,6 +34,7 @@
 			<jvmarg value="-DKeyStorePass=claudiu_password"/>
 			<arg value="localhost"/>
 			<arg value="777"/>
+			<arg value="Claudiu"/>
 	</java>
 	</target>
 

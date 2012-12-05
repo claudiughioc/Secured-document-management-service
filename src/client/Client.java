@@ -29,7 +29,7 @@ public class Client extends Thread{
 	/** Logger used by this class */
 	private static Logger logger = Logger.getLogger(Client.class.getName());
 
-	private static final String CLIENT_DIRECTORY = "resources/files/";
+	private static final String CLIENT_DIRECTORY = "resources/download/";
 	private BufferedReader br;
 	private DataOutputStream dos;
 	private DataInputStream dis;
@@ -44,8 +44,8 @@ public class Client extends Thread{
 	 * @param hostname
 	 * @param port
 	 */
-	public Client(String hostname, int port) {
-		this.name = "Claudiu";
+	public Client(String hostname, int port, String name) {
+		this.name = name;
 		try {
 		createSSLConnection(hostname, port);
 		} catch (Exception e) {
@@ -300,14 +300,15 @@ public class Client extends Thread{
 		int port;
 		Client client;
 
-		if(args == null || args.length < 2) {
-			System.out.println("Introduce the server's address and port");
+		if(args == null || args.length < 3) {
+			System.out.println("Introduce the server's address, the port and your name");
 			return;
 		}
 
 		hostname = args[0];
 		port = Integer.parseInt(args[1]);
-		client = new Client(hostname, port);
+		String name = args[2];
+		client = new Client(hostname, port, name);
 		client.start();
 	}
 }

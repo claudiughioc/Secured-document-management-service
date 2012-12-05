@@ -27,8 +27,9 @@ import javax.net.ssl.TrustManagerFactory;
  *
  */
 public class Server implements Runnable {
-	public static final String END_OF_MESSAGE = "###";
-	public static final String STORAGE_DIRECTORY = "resources/storage/";
+	public static final String END_OF_MESSAGE		 = "###";
+	public static final String STORAGE_DIRECTORY	 = "resources/storage/";
+	public static final String FILE_STORAGE_DETAILS	 = "config/server/file_details";
 	public static Object writeLock = new Object();
 
 	/** Logger used by this class */
@@ -48,6 +49,7 @@ public class Server implements Runnable {
 	private Certificate CACertificate = null;
 	private String name;
 	private File storage;
+	static StorageDetails storageDetails;
 
 	/**
 	 * Constructor.
@@ -62,7 +64,8 @@ public class Server implements Runnable {
 
 		// Open the directory of files
 		storage = new File(STORAGE_DIRECTORY);
-
+		System.out.println("Creating storage details");
+		Server.storageDetails = new StorageDetails(FILE_STORAGE_DETAILS);
 	}
 
 	/**
