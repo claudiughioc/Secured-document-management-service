@@ -1,11 +1,17 @@
 package server;
 
+import java.io.BufferedReader;
+import java.io.DataInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStreamReader;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.io.PrintWriter;
+import java.util.StringTokenizer;
 import java.util.logging.Logger;
 
 import javax.crypto.KeyGenerator;
@@ -50,19 +56,26 @@ public class StorageDetails {
 	 * Saves the file and client information to the encrypted file
 	 * @param fileName
 	 * @param clientDetails
+	 * @return true if the server should accept the new file
+	 * 			false if the server should reject the file
 	 */
-	public void storeUploadDetails(String fileName, ClientDetails clientDetails) {
+	public boolean storeUploadDetails(String fileName, ClientDetails clientDetails) {
+		// Check if the client's department has a priority
+		if (!Server.priorities.containsKey(clientDetails.department)) {
+			logger.severe("The client's department is unknown. Adding default priority: " + Server.DEFAULT_DEPT_PRIORITY);
+			Server.priorities.put(clientDetails.department, Server.DEFAULT_DEPT_PRIORITY);
+		}
+		
 		logger.info("Storing upload info for file " + fileName + " client " + clientDetails);
-		String info = fileName + " " + clientDetails.name + " " + clientDetails.department + "\n";
+		
 		try {
 			// Decrypt the file
 			if (!desHelper.decrypt(new FileInputStream(fileDetailsName), new FileOutputStream(fileDetailsName + ".tmp")))
-				return;	
+				return false;	
 			
-			// Add the client and file information
-			FileOutputStream out = new FileOutputStream(fileDetailsName + ".tmp", true);
-			out.write(info.getBytes());
-			out.close();
+			// Add or replace the client and file information
+			if(!updateFileInformation(fileName, clientDetails, fileDetailsName + ".tmp"))
+				return false;
 			
 			// Delete the old encryption
 			File file = new File(fileDetailsName);
@@ -72,11 +85,11 @@ public class StorageDetails {
 			File newEncryption = new File(fileDetailsName);
 			if (newEncryption.createNewFile() == false) {
 				logger.severe("Failed to re-create the storage information file when uploading '" + fileName + "'");
-				return;	
+				return false;	
 			}
 			if (!desHelper.encrypt(new FileInputStream(fileDetailsName + ".tmp"), new FileOutputStream(fileDetailsName))) {
 				logger.severe("Failed encrypt storage information file '" + fileName + "'");
-				return;
+				return false;
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -86,5 +99,99 @@ public class StorageDetails {
 		File temp = new File(fileDetailsName + ".tmp");
 		temp.delete();
 		*/
+		return true;
+	}
+
+	/**
+	 * Adds or replace client and new file information in the server's
+	 * storage configuration file
+	 * @param fileName - the name of the new file
+	 * @param clientDetails - client details
+	 * @param decryptedFile - decrypted configuration file
+	 * @return true if the server should accept the new file
+	 * 			false if the server should reject the file
+	 * @throws IOException 
+	 */
+	public boolean updateFileInformation(String fileName, ClientDetails clientDetails, String decryptedFile) throws IOException {
+		String info = fileName + " " + clientDetails.name + " " + clientDetails.department + "\n";
+		String currFile, currClient, currDept;
+		boolean updated = true, clientFound = false;
+		try{
+			// Open the decrypted file
+			FileInputStream fstream = new FileInputStream(decryptedFile);
+			DataInputStream in = new DataInputStream(fstream);
+			BufferedReader br = new BufferedReader(new InputStreamReader(in));
+			String strLine;
+			
+			// Open a new temporary file
+			PrintWriter prw = new PrintWriter(new FileOutputStream(new File(decryptedFile + ".cpy")));
+
+			// Read File Line By Line
+			while ((strLine = br.readLine()) != null) {
+				StringTokenizer st = new StringTokenizer(strLine, " \t,");
+				currFile = st.nextToken();
+				currClient = st.nextToken();
+				currDept = st.nextToken();
+				// Skip different files
+				if (!currFile.equals(fileName)) {
+					prw.println(strLine);
+					continue;
+				}
+				clientFound = true;
+				int currPriority = Server.priorities.get(currDept);
+				int newPriority = Server.priorities.get(clientDetails.department);
+				if (newPriority <= currPriority) {
+					System.out.println("Storage: replacing file info in config");
+					prw.println(info);
+				} else {
+					System.out.println("Storage: the new client is dumber than the previous one");
+					prw.println(strLine);
+					updated = false;
+				}
+			}
+			if (clientFound) {
+				prw.println(info);
+				updated = true;
+			}
+			prw.close();
+			in.close();
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		
+		if (!updated) {
+			System.out.println("Storage: the server should refuse");
+			return false;
+		}
+		System.out.println("Storage: the server should accept");
+		
+		try{
+			// Open the decrypted file copy
+			FileInputStream fstream = new FileInputStream(decryptedFile + ".cpy");
+			DataInputStream in = new DataInputStream(fstream);
+			BufferedReader br = new BufferedReader(new InputStreamReader(in));
+			String strLine;
+			
+			// Open the decrypted file
+			PrintWriter prw = new PrintWriter(new FileOutputStream(new File(decryptedFile)));
+			// Read File Line By Line
+			while ((strLine = br.readLine()) != null)
+				prw.println(strLine);
+			prw.close();
+			in.close();
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		/*
+		// Delete the old configuration file
+		File file = new File(decryptedFile);
+		file.delete();
+		
+		// Replace it with the new one
+		file = new File(decryptedFile + ".cpy");
+		file.renameTo(new File(decryptedFile));
+		*/
+		return true;
 	}
 }

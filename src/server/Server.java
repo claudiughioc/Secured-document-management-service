@@ -1,14 +1,19 @@
 package server;
 
+import java.io.BufferedReader;
+import java.io.DataInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.security.KeyStore;
 import java.security.cert.Certificate;
 import java.security.cert.X509Certificate;
+import java.util.Hashtable;
+import java.util.StringTokenizer;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
@@ -22,8 +27,6 @@ import javax.net.ssl.SSLServerSocketFactory;
 import javax.net.ssl.SSLSocket;
 import javax.net.ssl.TrustManagerFactory;
 
-import common.DESEncrypter;
-
 /**
  * O clasa server ce accepta conexiuni TLS.
  * @author Claudiu Ghioc claudiu.ghioc@gmail.com
@@ -34,7 +37,9 @@ public class Server implements Runnable {
 	public static final String STORAGE_DIRECTORY	 = "resources/storage/";
 	public static final String FILE_STORAGE_DETAILS	 = "config/server/file_details";
 	public static final String SECRET_KEY			 = "config/server/SecretKey.ser";
-	
+	public static final String PRIORITIES			 = "config/server/priorities.txt";
+	public static final int	DEFAULT_DEPT_PRIORITY	 = 777;
+
 	/** Logger used by this class */
 	private static final transient Logger logger = Logger.getLogger("capV.example3.Server");
 
@@ -49,11 +54,12 @@ public class Server implements Runnable {
 	// conextiunilor cu fiecare client
 	final protected ExecutorService pool;
 	final private ThreadFactory tfactory;
-	
+
 	private Certificate CACertificate = null;
 	private String name;
 	private File storage;
 	public static StorageDetails storageDetails = null;
+	public static Hashtable<String, Integer> priorities;
 
 	/**
 	 * Constructor.
@@ -68,9 +74,12 @@ public class Server implements Runnable {
 
 		// Open the directory of files
 		storage = new File(STORAGE_DIRECTORY);
-		
+
 		// Create an object to save information about the stored files
 		storageDetails = new StorageDetails(FILE_STORAGE_DETAILS);
+
+		// Initiate priorities for departments
+		initPriorities();
 	}
 
 	/**
@@ -197,7 +206,7 @@ public class Server implements Runnable {
 	}
 
 	/**
-	 * Metoda poate fi folosita pentru oprirea serverului
+	 * Method used to stop the server
 	 */
 	public void stop() {
 		hasToRun = false;
@@ -207,9 +216,35 @@ public class Server implements Runnable {
 		ss = null;
 	}
 
+	/**
+	 * Initiates the Hashtable with departments - priority
+	 */
+	public void initPriorities() {
+		Server.priorities = new Hashtable<String, Integer>();
+		String dept = "";
+		int priority;
+		try{
+			FileInputStream fstream = new FileInputStream(Server.PRIORITIES);
+			DataInputStream in = new DataInputStream(fstream);
+			BufferedReader br = new BufferedReader(new InputStreamReader(in));
+			String strLine;
+
+			// Read File Line By Line
+			while ((strLine = br.readLine()) != null) {
+				StringTokenizer st = new StringTokenizer(strLine, " \t,");
+				dept = st.nextToken();
+				priority = Integer.parseInt(st.nextToken());
+				Server.priorities.put(dept, priority);
+			}
+			in.close();
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+
 	public static void main(String args[]) {
 		if (args == null || args.length < 1) {
-			System.out.println("Nu a fost furnizat ca argument portul");
+			System.out.println("Introduce the port");
 			return;
 		}
 		try {

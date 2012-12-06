@@ -60,7 +60,15 @@ public final class ClientThread implements Runnable {
 			String fileName = Server.STORAGE_DIRECTORY + command.substring(7);
 
 			// Add the file information to the encrypted file
-			Server.storageDetails.storeUploadDetails(fileName, clientDetails);
+			// Also check if the server should accept the new file
+			if (!Server.storageDetails.storeUploadDetails(fileName, clientDetails)) {
+				pw.println(FileTransport.DENIED);
+				System.out.println("Upload denied");
+			} else {
+				pw.println(FileTransport.OK);
+				System.out.println("Upload accepted");
+			}
+			pw.flush();
 
 			// Get the file from the client
 			FileTransport.receiveFile(fileName, dis);

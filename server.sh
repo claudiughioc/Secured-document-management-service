@@ -1,11 +1,8 @@
 #!/bin/sh
 
-if test $# -ne 1; then
-	echo "Usage: $0 department_name"
-	exit 1
-fi
-rm -rf resources/server/$1
-mkdir resources/server/$1
+rm -rf resources/server/*
+rmdir resources/server/
+mkdir resources/server
 
 # the certificate of the certification authority
 CA_certificate="resources/certification_authority/ca.pem"
@@ -22,48 +19,48 @@ AS_certificate="resources/authorization_server/authorization_server.crt"
 AS_alias="authorization_server"
 
 # the identifier of this department server's key pair in the keystore
-DS_alias=$1"_private"
+DS_alias="server_private"
 # this department server's keystore
-DS_ks=resources/server/$1/$1".ks"
+DS_ks=resources/server/"server.ks"
 # the password for both this department server's keystore and key pair
-DS_pass=$1"_password"
+DS_pass="server_password"
 # the certificate request of this department server
-DS_certificate_request=resources/server/$1/$1".csr"
+DS_certificate_request=resources/server/"server.csr"
 # the signed certificate of this department server
-DS_certificate=resources/server/$1/$1".crt"
+DS_certificate=resources/server/"server.crt"
 
 # create a keystore for this department server
 echo "--------------------------------------------------"
-echo "Create the keystore for the '$1' department server"
+echo "Create the keystore for the server"
 echo "--------------------------------------------------"
-keytool -genkey -alias ${DS_alias} -keystore ${DS_ks} -storetype JKS -keyalg rsa -dname "CN=$1, OU=department, O=SPRC, L=Bucharest, S=Bucharest, C=RO" -storepass ${DS_pass} -keypass ${DS_pass}
+keytool -genkey -alias ${DS_alias} -keystore ${DS_ks} -storetype JKS -keyalg rsa -dname "CN=server, OU=department, O=SPRC, L=Bucharest, S=Bucharest, C=RO" -storepass ${DS_pass} -keypass ${DS_pass}
 
 # create a certificate request for this department server
 echo "-----------------------------------------------------------"
-echo "Create a certificate request for the '$1' department server"
+echo "Create a certificate request for the 'server' department server"
 echo "-----------------------------------------------------------"
 keytool -certreq -keyalg rsa -alias ${DS_alias} -keypass ${DS_pass} -keystore ${DS_ks} -storepass ${DS_pass} -file ${DS_certificate_request}
 
 # have the certification authority sign the certificate request for this department server
 echo "-------------------------------------------------------------------------------------------"
-echo "Have the certification authority SIGN the certificate request of the '$1' department server"
+echo "Have the certification authority SIGN the certificate request of the 'server' department server"
 echo "-------------------------------------------------------------------------------------------"
 openssl x509 -CA ${CA_certificate} -CAkey ${CA_key} -CAserial ${CA_serial} -req -in ${DS_certificate_request} -out ${DS_certificate} -days 365
 
 # import the certification authority's certificate into this department server's keystore
 echo "------------------------------------------------------------------------------------------------"
-echo "IMPORT the certificate of the CERTIFICATION AUTHORITY into the '$1' department server's keystore"
+echo "IMPORT the certificate of the CERTIFICATION AUTHORITY into the 'server' department server's keystore"
 echo "------------------------------------------------------------------------------------------------"
 keytool -import -alias ${CA_alias} -keystore ${DS_ks} -storepass ${DS_pass} -trustcacerts -file ${CA_certificate}
 
 # import the signed certificate of this department server into this department server's keystore
 echo "------------------------------------------------------------------------------------------------------"
-echo "IMPORT the SIGNED certificate of the '$1' department server into the '$1' department server's keystore"
+echo "IMPORT the SIGNED certificate of the 'server' department server into the 'server' department server's keystore"
 echo "------------------------------------------------------------------------------------------------------"
 keytool -import -alias ${DS_alias} -keypass ${DS_pass} -keystore ${DS_ks} -storepass ${DS_pass} -trustcacerts -file ${DS_certificate}
 
 # import the signed certificate of the authorization server into this department server's keystore
 echo "--------------------------------------------------------------------------------------------------"
-echo "IMPORT the SIGNED certificate of the AUTHORIZATION SERVER into the '$1' department server's keystore"
+echo "IMPORT the SIGNED certificate of the AUTHORIZATION SERVER into the 'server' department server's keystore"
 echo "--------------------------------------------------------------------------------------------------"
 keytool -import -alias ${AS_alias} -keypass ${DS_pass} -keystore ${DS_ks} -storepass ${DS_pass} -trustcacerts -file ${AS_certificate}

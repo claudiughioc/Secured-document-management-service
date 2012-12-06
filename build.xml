@@ -19,7 +19,7 @@
 			<classpath>
 		    	<pathelement path="bin/"/>
 			</classpath>
-            <jvmarg value="-DKeyStore=resources/server/server/server.ks"/>
+            <jvmarg value="-DKeyStore=resources/server/server.ks"/>
 			<jvmarg value="-DKeyStorePass=server_password"/>
 			<arg value="777"/>
 		</java>
@@ -34,8 +34,47 @@
 			<jvmarg value="-DKeyStorePass=claudiu_password"/>
 			<arg value="localhost"/>
 			<arg value="777"/>
-			<arg value="Claudiu"/>
-	</java>
+			<arg value="claudiu"/>
+		</java>
+	</target>
+
+	<target name="client1" depends="build">
+		<java classname="client.Client" fork="true">
+			<classpath>
+	    		<pathelement path="bin/"/>
+			</classpath>
+            <jvmarg value="-DKeyStore=resources/client/client1/client1.ks"/>
+			<jvmarg value="-DKeyStorePass=client1_password"/>
+			<arg value="localhost"/>
+			<arg value="777"/>
+			<arg value="client1"/>
+		</java>
+	</target>
+
+	<target name="client2" depends="build">
+		<java classname="client.Client" fork="true">
+			<classpath>
+	    		<pathelement path="bin/"/>
+			</classpath>
+            <jvmarg value="-DKeyStore=resources/client/client2/client2.ks"/>
+			<jvmarg value="-DKeyStorePass=client2_password"/>
+			<arg value="localhost"/>
+			<arg value="777"/>
+			<arg value="client2"/>
+		</java>
+	</target>
+
+	<target name="client3" depends="build">
+		<java classname="client.Client" fork="true">
+			<classpath>
+	    		<pathelement path="bin/"/>
+			</classpath>
+            <jvmarg value="-DKeyStore=resources/client/client3/client3.ks"/>
+			<jvmarg value="-DKeyStorePass=client3_password"/>
+			<arg value="localhost"/>
+			<arg value="777"/>
+			<arg value="client3"/>
+		</java>
 	</target>
 
 </project>

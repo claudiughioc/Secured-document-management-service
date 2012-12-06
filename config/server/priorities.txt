@@ -1,0 +1,5 @@
+upb     0
+ase     99
+unibuc  3
+poliTim 10
+firma   69

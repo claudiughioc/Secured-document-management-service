@@ -223,8 +223,18 @@ public class Client extends Thread{
 		pw.println(command);
 		pw.flush();
 		
-		// Send the file
-		FileTransport.sendFile(fileName, dos);
+		// Send the file if OK from server
+		try {
+			String message = br.readLine();
+			if (message.equals(FileTransport.OK))
+				FileTransport.sendFile(fileName, dos);
+			else {
+				System.out.println("-- the upload has been rejected by the server");
+				return;
+			}
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
 		System.out.println("-- uploaded " + fileName);
 	}
 

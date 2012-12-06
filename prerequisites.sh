@@ -31,13 +31,29 @@ rmdir resources/server/
 
 rm -fr resources/client/*
 rmdir resources/client/
-rmdir resources
+rm -rf resources
 
 mkdir resources
 mkdir resources/client
 mkdir resources/authorization_server
 mkdir resources/server
 mkdir resources/certification_authority
+
+# Create the config file to store information about the incoming files
+rm -f config/server/file_details
+touch config/server/file_details
+
+# Create some test files
+mkdir resources/storage
+echo "test" > resources/storage/s1
+echo "test" > resources/storage/s2
+echo "test" > resources/storage/s3
+echo "test" > resources/storage/s4
+mkdir resources/download
+echo "test" > resources/download/c1
+echo "test" > resources/download/c2
+echo "test" > resources/download/c3
+echo "test" > resources/download/c4
 
 # create a private key and certificate request for the certification authority
 # (X.509 Certificate Signing Request (CSR) Management); generate a new rsa key on 1024 bits; don't encrypt the output key; specify the output file and the file to send the key to; do not ask anyting during request generation
