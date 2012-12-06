@@ -22,16 +22,19 @@ import javax.net.ssl.SSLServerSocketFactory;
 import javax.net.ssl.SSLSocket;
 import javax.net.ssl.TrustManagerFactory;
 
+import common.DESEncrypter;
+
 /**
  * O clasa server ce accepta conexiuni TLS.
+ * @author Claudiu Ghioc claudiu.ghioc@gmail.com
  *
  */
 public class Server implements Runnable {
 	public static final String END_OF_MESSAGE		 = "###";
 	public static final String STORAGE_DIRECTORY	 = "resources/storage/";
 	public static final String FILE_STORAGE_DETAILS	 = "config/server/file_details";
-	public static Object writeLock = new Object();
-
+	public static final String SECRET_KEY			 = "config/server/SecretKey.ser";
+	
 	/** Logger used by this class */
 	private static final transient Logger logger = Logger.getLogger("capV.example3.Server");
 
@@ -46,10 +49,11 @@ public class Server implements Runnable {
 	// conextiunilor cu fiecare client
 	final protected ExecutorService pool;
 	final private ThreadFactory tfactory;
+	
 	private Certificate CACertificate = null;
 	private String name;
 	private File storage;
-	static StorageDetails storageDetails;
+	public static StorageDetails storageDetails = null;
 
 	/**
 	 * Constructor.
@@ -64,8 +68,9 @@ public class Server implements Runnable {
 
 		// Open the directory of files
 		storage = new File(STORAGE_DIRECTORY);
-		System.out.println("Creating storage details");
-		Server.storageDetails = new StorageDetails(FILE_STORAGE_DETAILS);
+		
+		// Create an object to save information about the stored files
+		storageDetails = new StorageDetails(FILE_STORAGE_DETAILS);
 	}
 
 	/**

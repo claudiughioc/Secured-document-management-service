@@ -44,6 +44,7 @@ public final class ClientThread implements Runnable {
 	public void processCommandFromClient(String command) {
 		if (command.equals("list"))
 			serverList();
+
 		if (command.startsWith("download")) {
 			String fileName = Server.STORAGE_DIRECTORY + command.substring(9);
 			
@@ -54,21 +55,18 @@ public final class ClientThread implements Runnable {
 			if (logger.isLoggable(Level.INFO))
 				logger.log(Level.INFO, "Successfully downloaded " + fileName);
 		}
+
 		if (command.startsWith("upload")) {
 			String fileName = Server.STORAGE_DIRECTORY + command.substring(7);
+
+			// Add the file information to the encrypted file
+			Server.storageDetails.storeUploadDetails(fileName, clientDetails);
 
 			// Get the file from the client
 			FileTransport.receiveFile(fileName, dis);
 			if (logger.isLoggable(Level.INFO))
 				logger.log(Level.INFO, "Successfully uploaded " + fileName);
 		}
-	}
-
-	/**
-	 * Send a file to the client of this server thread
-	 */
-	public void sendFileToClient(String fileName) {
-		
 	}
 
 	/**
