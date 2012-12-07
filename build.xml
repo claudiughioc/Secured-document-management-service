@@ -22,6 +22,7 @@
             <jvmarg value="-DKeyStore=resources/server/server.ks"/>
 			<jvmarg value="-DKeyStorePass=server_password"/>
 			<arg value="777"/>
+			<arg value="localhost"/>
 		</java>
 	</target>
 
@@ -77,4 +78,13 @@
 		</java>
 	</target>
 
+	<target name="auth" depends="build">
+		<java classname="authorization_server.AuthorizationServer" fork="true">
+			<classpath>
+		    	<pathelement path="bin/"/>
+			</classpath>
+            <jvmarg value="-DKeyStore=resources/authorization_server/authorization_server.ks"/>
+			<jvmarg value="-DKeyStorePass=authorization_server_password"/>
+		</java>
+	</target>
 </project>

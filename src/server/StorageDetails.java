@@ -113,7 +113,7 @@ public class StorageDetails {
 	 * @throws IOException 
 	 */
 	public boolean updateFileInformation(String fileName, ClientDetails clientDetails, String decryptedFile) throws IOException {
-		String info = fileName + " " + clientDetails.name + " " + clientDetails.department + "\n";
+		String info = fileName + " " + clientDetails.name + " " + clientDetails.department;
 		String currFile, currClient, currDept;
 		boolean updated = true, clientFound = false;
 		try{
@@ -149,11 +149,12 @@ public class StorageDetails {
 					updated = false;
 				}
 			}
-			if (clientFound) {
+			if (!clientFound) {
 				prw.println(info);
 				updated = true;
 			}
 			prw.close();
+			br.close();
 			in.close();
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -166,6 +167,9 @@ public class StorageDetails {
 		}
 		System.out.println("Storage: the server should accept");
 		
+		/*
+		File file = new File(decryptedFile);
+		file.delete();
 		try{
 			// Open the decrypted file copy
 			FileInputStream fstream = new FileInputStream(decryptedFile + ".cpy");
@@ -176,14 +180,17 @@ public class StorageDetails {
 			// Open the decrypted file
 			PrintWriter prw = new PrintWriter(new FileOutputStream(new File(decryptedFile)));
 			// Read File Line By Line
-			while ((strLine = br.readLine()) != null)
+			while ((strLine = br.readLine()) != null) {
+				System.out.println("There is life in cpy");
 				prw.println(strLine);
+			}
 			prw.close();
+			br.close();
 			in.close();
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
-		/*
+		*/
 		// Delete the old configuration file
 		File file = new File(decryptedFile);
 		file.delete();
@@ -191,7 +198,6 @@ public class StorageDetails {
 		// Replace it with the new one
 		file = new File(decryptedFile + ".cpy");
 		file.renameTo(new File(decryptedFile));
-		*/
 		return true;
 	}
 }

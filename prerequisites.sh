@@ -43,6 +43,10 @@ mkdir resources/certification_authority
 rm -f config/server/file_details
 touch config/server/file_details
 
+# Create the banned clients list for Authorization Server
+rm -f config/auth/banned
+touch config/auth/banned
+
 # Create some test files
 mkdir resources/storage
 echo "test" > resources/storage/s1

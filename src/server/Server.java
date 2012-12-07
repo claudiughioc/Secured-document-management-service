@@ -36,7 +36,7 @@ public class Server implements Runnable {
 	public static final String END_OF_MESSAGE		 = "###";
 	public static final String STORAGE_DIRECTORY	 = "resources/storage/";
 	public static final String FILE_STORAGE_DETAILS	 = "config/server/file_details";
-	public static final String SECRET_KEY			 = "config/server/SecretKey.ser";
+	static final String SECRET_KEY			 		 = "config/server/SecretKey.ser";
 	public static final String PRIORITIES			 = "config/server/priorities.txt";
 	public static final int	DEFAULT_DEPT_PRIORITY	 = 777;
 
@@ -48,6 +48,7 @@ public class Server implements Runnable {
 
 	// socketul server
 	protected ServerSocket ss = null;
+	static SSLContext ctx;
 
 	// un pool de threaduri ce este folosit pentru executia
 	// secventelor de operatii corespunzatoare
@@ -56,7 +57,7 @@ public class Server implements Runnable {
 	final private ThreadFactory tfactory;
 
 	private Certificate CACertificate = null;
-	private String name;
+	static String name, authServer;
 	private File storage;
 	public static StorageDetails storageDetails = null;
 	public static Hashtable<String, Integer> priorities;
@@ -66,8 +67,9 @@ public class Server implements Runnable {
 	 * @param port Portul pe care va asculta serverul
 	 * @throws Exception
 	 */
-	public Server(int port) throws Exception {
-		this.name = Server.class.getName();
+	public Server(int port, String authServer) throws Exception {
+		Server.authServer = authServer;
+		Server.name = Server.class.getName();
 		ss = createServerSocket(port, System.getProperty("KeyStore"), System.getProperty("KeyStorePass"));
 		tfactory = new DaemonThreadFactory();
 		pool = Executors.newCachedThreadPool(tfactory);
@@ -94,7 +96,6 @@ public class Server implements Runnable {
 		SSLServerSocketFactory ssf = null;
 		SSLServerSocket ss = null;
 		try {
-			SSLContext ctx;
 			KeyManagerFactory kmf;
 			KeyStore ks;
 
@@ -249,7 +250,8 @@ public class Server implements Runnable {
 		}
 		try {
 			int port = Integer.parseInt(args[0]);
-			(new Thread(new Server(port))).start();
+			String authServer = args[1];
+			(new Thread(new Server(port, authServer))).start();
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
