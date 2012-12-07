@@ -11,7 +11,9 @@ import java.io.OutputStream;
 
 public class FileTransport {
 	public static final String OK 		= "OK";
-	public static final String DENIED 	= "NO";
+	public static final String DENIED 	= "You don't have the rights";
+	public static final String BAN		= "This file name is forbidden. You are Banned!";
+
 	/**
 	 * Send a file to a DataOutputStream
 	 * @param fileName

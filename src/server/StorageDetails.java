@@ -167,30 +167,6 @@ public class StorageDetails {
 		}
 		System.out.println("Storage: the server should accept");
 		
-		/*
-		File file = new File(decryptedFile);
-		file.delete();
-		try{
-			// Open the decrypted file copy
-			FileInputStream fstream = new FileInputStream(decryptedFile + ".cpy");
-			DataInputStream in = new DataInputStream(fstream);
-			BufferedReader br = new BufferedReader(new InputStreamReader(in));
-			String strLine;
-			
-			// Open the decrypted file
-			PrintWriter prw = new PrintWriter(new FileOutputStream(new File(decryptedFile)));
-			// Read File Line By Line
-			while ((strLine = br.readLine()) != null) {
-				System.out.println("There is life in cpy");
-				prw.println(strLine);
-			}
-			prw.close();
-			br.close();
-			in.close();
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
-		*/
 		// Delete the old configuration file
 		File file = new File(decryptedFile);
 		file.delete();

@@ -229,7 +229,7 @@ public class Client extends Thread{
 			if (message.equals(FileTransport.OK))
 				FileTransport.sendFile(fileName, dos);
 			else {
-				System.out.println("-- the upload has been rejected by the server");
+				System.out.println(message);
 				return;
 			}
 		} catch (IOException e) {

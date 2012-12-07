@@ -5,6 +5,7 @@ import java.io.BufferedWriter;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
@@ -57,41 +58,64 @@ public final class ClientThread implements Runnable {
 		if (command.equals("list"))
 			serverList();
 
-		if (command.startsWith("download")) {
-			String fileName = Server.STORAGE_DIRECTORY + command.substring(9);
+		if (command.startsWith("download"))
+			serverDownload(command);
 
-			String response = communicateWithAuth("Hello");
-			System.out.println("Sent hello to auth, got " + response);
-			
-			// Send the file to the client
-			pw.println(FileTransport.DENIED);
-			pw.flush();
-			FileTransport.sendFile(fileName, dos);
-			if (logger.isLoggable(Level.INFO))
-				logger.log(Level.INFO, "Successfully downloaded " + fileName);
-		}
-
-		if (command.startsWith("upload")) {
-			String fileName = Server.STORAGE_DIRECTORY + command.substring(7);
-
-			// Add the file information to the encrypted file
-			// Also check if the server should accept the new file
-			if (!Server.storageDetails.storeUploadDetails(fileName, clientDetails)) {
-				pw.println(FileTransport.DENIED);
-				System.out.println("Upload denied");
-			} else {
-				pw.println(FileTransport.OK);
-				System.out.println("Upload accepted");
-			}
-			pw.flush();
-
-			// Get the file from the client
-			FileTransport.receiveFile(fileName, dis);
-			if (logger.isLoggable(Level.INFO))
-				logger.log(Level.INFO, "Successfully uploaded " + fileName);
-		}
+		if (command.startsWith("upload"))
+			serverUpload(command);
 	}
 
+	/**
+	 * Process the download command from the client
+	 */
+	public void serverDownload(String command) {
+		String responseToClient = FileTransport.OK;
+		String fileName = Server.STORAGE_DIRECTORY + command.substring(9);
+
+		String response = communicateWithAuth("Hello");
+		System.out.println("Sent hello to auth, got " + response);
+		
+		// Send the file to the client
+		pw.println(responseToClient);
+		pw.flush();
+
+		if (!responseToClient.equals(FileTransport.OK))
+			return;
+		FileTransport.sendFile(fileName, dos);
+		if (logger.isLoggable(Level.INFO))
+			logger.log(Level.INFO, "Successfully downloaded " + fileName);
+
+	}
+
+	/**
+	 * Process the upload command from the client
+	 */
+	public void serverUpload(String command) {
+		String responseToClient = FileTransport.OK;
+		String fileName = Server.STORAGE_DIRECTORY + command.substring(7);
+		
+		// Add the file information to the encrypted file
+		// Also check if the server should accept the new file
+		if (!Server.storageDetails.storeUploadDetails(fileName, clientDetails))
+			responseToClient = FileTransport.DENIED;
+			
+		// Check the file name in the banned words list
+		if (checkFileName(fileName)) {
+			responseToClient = "This file name is forbidden. You are Banned!";
+			communicateWithAuth("BAN " + clientDetails.name);
+		}
+		System.out.println("Upload response: " + responseToClient);
+		pw.println(responseToClient);
+		pw.flush();
+
+		// Get the file from the client if ok
+		if (!responseToClient.equals(FileTransport.OK))
+			return;
+		FileTransport.receiveFile(fileName, dis);
+		if (logger.isLoggable(Level.INFO))
+			logger.log(Level.INFO, "Successfully uploaded " + fileName);
+
+	}
 	/**
 	 * Send the list of file to the client
 	 */
@@ -110,39 +134,58 @@ public final class ClientThread implements Runnable {
 	}
 
 	/**
+	 * Check if a filename is included in the banned words list
+	 */
+	public boolean checkFileName(String fileName) {
+		try {
+			// Open the banned words file
+			FileInputStream fstream = new FileInputStream(Server.FILE_BANNED_WORDS);
+			DataInputStream in = new DataInputStream(fstream);
+			BufferedReader br = new BufferedReader(new InputStreamReader(in));
+			String strLine;
+			
+			// Read File Line By Line
+			while ((strLine = br.readLine()) != null)
+				if (fileName.contains(strLine))
+					return true;
+			br.close();
+			in.close();
+		} catch (Exception e) {
+			e.printStackTrace();
+			return true;
+		}
+		return false;
+	}
+	
+	/**
 	 * Closes the streams and the socket
 	 */
 	public void close() {
-		if (br != null){
+		if (br != null)
 			try {
 				br.close();
 			}catch(Throwable tt){
 			}
-		}
-		if (pw != null){
+		if (pw != null)
 			try {
 				pw.close();
 			}catch(Throwable tt){
 			}
-		}
-		if (dis != null){
+		if (dis != null)
 			try {
 				dis.close();
 			}catch(Throwable tt){
 			}
-		}
-		if (dos != null){
+		if (dos != null)
 			try {
 				dos.close();
 			}catch(Throwable tt){
 			}
-		}
-		if ( s != null){
+		if ( s != null)
 			try {
 				s.close();
 			} catch (Throwable t){
 			}
-		}
 	}
 
 	/**
@@ -212,7 +255,7 @@ public final class ClientThread implements Runnable {
 				ioe.printStackTrace();	
 			}
 		}
-
+		System.out.println("Response from AUTH: " + response);
 		return response;
 	}
 

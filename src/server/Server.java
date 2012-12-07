@@ -38,6 +38,7 @@ public class Server implements Runnable {
 	public static final String FILE_STORAGE_DETAILS	 = "config/server/file_details";
 	static final String SECRET_KEY			 		 = "config/server/SecretKey.ser";
 	public static final String PRIORITIES			 = "config/server/priorities.txt";
+	public static final String FILE_BANNED_WORDS	 = "config/server/banned_words.txt";
 	public static final int	DEFAULT_DEPT_PRIORITY	 = 777;
 
 	/** Logger used by this class */

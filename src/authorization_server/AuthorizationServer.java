@@ -2,6 +2,7 @@ package authorization_server;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
@@ -13,8 +14,11 @@ import java.io.OutputStreamWriter;
 import java.security.KeyStore;
 import java.security.cert.Certificate;
 import java.security.cert.X509Certificate;
+import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.StringTokenizer;
+import java.util.Timer;
 import java.util.logging.Logger;
 
 import javax.crypto.KeyGenerator;
@@ -37,10 +41,13 @@ import common.DESEncrypter;
  */
 public class AuthorizationServer implements Runnable {
 	public static final int SERVER_PORT					= 778;
+	private static final int BAN_TIME					= 30000; // mili seconds
 	private static final String SECRET_KEY				= "config/auth/AuthSecretKey.ser";
-	
+	static final String BANNED_ENCRYPTED				= "config/auth/banned";
+	static final String BANNED_DECRYPTED				= "config/auth/banned.tmp";
+
 	static Logger logger = Logger.getLogger(AuthorizationServer.class.getName());
-	
+
 	private Map<String, Integer> priorities;
 	private KeyStore serverKeyStore = null;
 	private KeyManagerFactory keyManagerFactory = null;
@@ -52,8 +59,8 @@ public class AuthorizationServer implements Runnable {
 	private String authKeystorePass;
 	// key used for encrypting / decrypting the file containing information about the banned clients
 	DESEncrypter crypt = null;
-	
-	
+
+
 	public AuthorizationServer () {
 		this.authKeystore 	  = System.getProperty("KeyStore");
 		this.authKeystorePass = System.getProperty("KeyStorePass");
@@ -63,7 +70,7 @@ public class AuthorizationServer implements Runnable {
 		this.priorities.put("IT", 2);
 		this.priorities.put("MANAGEMENT", 3);
 	}
-	
+
 	/**
 	 * Initializes the Authorization Server, opens SSL socket, creates decrypter
 	 * @return
@@ -80,7 +87,7 @@ public class AuthorizationServer implements Runnable {
 			return 1;
 		}
 		logger.info("Successfully obtained a reference to the authorization server's keystore");
-		
+
 		try {
 			// get a key manager factory
 			this.keyManagerFactory = KeyManagerFactory.getInstance("SunX509");
@@ -90,7 +97,7 @@ public class AuthorizationServer implements Runnable {
 			return 1;
 		}
 		logger.info("Successfully obtained a key manager factory");
-		
+
 		try {
 			// initialize the key manager factory with a source of key material
 			this.keyManagerFactory.init(this.serverKeyStore, authKeystorePass.toCharArray());
@@ -100,7 +107,7 @@ public class AuthorizationServer implements Runnable {
 			return 1;
 		}
 		logger.info("Successfully initialized the key manager factory");
-		
+
 		try {
 			// get a trust manager factory
 			this.trustManagerFactory = TrustManagerFactory.getInstance("SunX509");
@@ -110,7 +117,7 @@ public class AuthorizationServer implements Runnable {
 			return 1;
 		}
 		logger.info("Successfully obtained a trust manager factory");
-		
+
 		try {
 			// initialize the trust manager factory with a source of key material
 			this.trustManagerFactory.init(this.serverKeyStore);
@@ -120,7 +127,7 @@ public class AuthorizationServer implements Runnable {
 			return 1;
 		}
 		logger.info("Successfully initialized the trust manager factory");
-		
+
 		try {
 			// set the SSL context
 			this.sslContext = SSLContext.getInstance("TLS");
@@ -131,7 +138,7 @@ public class AuthorizationServer implements Runnable {
 			return 1;
 		}
 		logger.info("Successfully initialized a SSL context");
-		
+
 		try {
 			// get the certificate of this server's certification authority
 			this.CACertificate = this.serverKeyStore.getCertificate("certification_authority");
@@ -140,32 +147,32 @@ public class AuthorizationServer implements Runnable {
 			e.printStackTrace();
 			return 1;
 		}
-		
+
 		// Try to open the Authorization server's secret key
 		SecretKey key = null;
-        try {
-            ObjectInputStream in = new ObjectInputStream(new FileInputStream(AuthorizationServer.SECRET_KEY));
-            key = (SecretKey)in.readObject();
-            in.close();
-        } catch (FileNotFoundException fnfe) {
-        	// generate a cryptographic key
-        	try {
+		try {
+			ObjectInputStream in = new ObjectInputStream(new FileInputStream(AuthorizationServer.SECRET_KEY));
+			key = (SecretKey)in.readObject();
+			in.close();
+		} catch (FileNotFoundException fnfe) {
+			// generate a cryptographic key
+			try {
 				key = KeyGenerator.getInstance("DES").generateKey();
-	            ObjectOutputStream out = new ObjectOutputStream(new FileOutputStream(AuthorizationServer.SECRET_KEY));
-	            out.writeObject(key);
-	            out.close();
-        	} catch (Exception e) {
-        		e.printStackTrace();
-        		return 1;
-        	}
-        } catch (Exception e) {
-        	e.printStackTrace();
-        	return 1;
-        }
-        crypt = new DESEncrypter(key);
+				ObjectOutputStream out = new ObjectOutputStream(new FileOutputStream(AuthorizationServer.SECRET_KEY));
+				out.writeObject(key);
+				out.close();
+			} catch (Exception e) {
+				e.printStackTrace();
+				return 1;
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+			return 1;
+		}
+		crypt = new DESEncrypter(key);
 		return 0;
 	}
-	
+
 	public void run () {
 		if (initialize() != 0) {
 			return;
@@ -178,10 +185,10 @@ public class AuthorizationServer implements Runnable {
 			return;
 		}
 		logger.info("Successfully created a SSL server socket");
-		
+
 		serverSocket.setNeedClientAuth(true);
 		logger.info("Listening for incoming connections... ");
-		
+
 		while (true) {
 			SSLSocket socket = null;
 			try {
@@ -212,7 +219,7 @@ public class AuthorizationServer implements Runnable {
 				e.printStackTrace();
 				continue;
 			}
-				
+
 			if (CACertificate.equals(peerCertificates[1])) {
 				logger.info("The peer's CA certificate matches the authorization server's CA certificate");
 			}
@@ -273,9 +280,62 @@ public class AuthorizationServer implements Runnable {
 			}
 		}
 	}
-	
+
+	/**
+	 * Processes a request from the server
+	 * @param request
+	 * @return
+	 */
 	public String processRequest(String request) {
+		StringTokenizer st = new StringTokenizer(request, " ");
+		if (request.startsWith("BAN")) {
+			st.nextToken();
+			ban(st.nextToken());
+		}
 		return "mama";
+	}
+
+	private void ban (String clientName) {
+		System.out.println("Banning " + clientName);
+		try {
+			if (!crypt.decrypt(new FileInputStream(BANNED_ENCRYPTED), new FileOutputStream(BANNED_DECRYPTED))) {
+				return;	
+			}
+			// add this client to the list of those banned
+			FileOutputStream out = new FileOutputStream(BANNED_DECRYPTED, true);
+			String line = clientName + " " + System.currentTimeMillis() + "\n";
+			out.write(line.getBytes());
+			out.close();
+			
+			// delete the old encryption
+			File file = new File(BANNED_ENCRYPTED);
+			file.delete();
+			
+			// encrypt the new information
+			File newEncryption = new File(BANNED_ENCRYPTED);
+			if (newEncryption.createNewFile() == false) {
+				logger.severe("Failed to re-create the 'banned_encrypted' file when banning the client '" + clientName + "'");
+				return;	
+			}
+			if (!crypt.encrypt(new FileInputStream(BANNED_DECRYPTED), new FileOutputStream(BANNED_ENCRYPTED))) {
+				logger.severe("Failed to ban the client '" + clientName + "'");
+				return;
+			}
+			
+			// set the timer so that the client is allowed back after the timeout
+			Date timeToRun = new Date(System.currentTimeMillis() + BAN_TIME);
+			Timer timer = new Timer();
+			timer.schedule(new BannedTimerTask(this, clientName), timeToRun);
+
+		} catch (Exception e) {
+			logger.severe("Failed to ban the client '" + clientName + "'");
+			e.printStackTrace();
+			return;
+		}
+		// delete the decryption
+		File temp = new File(BANNED_DECRYPTED);
+		temp.delete();
+		return;
 	}
 
 	public static void main (String args[]) {
