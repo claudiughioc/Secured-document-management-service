@@ -15,8 +15,7 @@ import java.security.KeyStore;
 import java.security.cert.Certificate;
 import java.security.cert.X509Certificate;
 import java.util.Date;
-import java.util.LinkedHashMap;
-import java.util.Map;
+import java.util.Hashtable;
 import java.util.StringTokenizer;
 import java.util.Timer;
 import java.util.logging.Logger;
@@ -30,6 +29,7 @@ import javax.net.ssl.SSLSocket;
 import javax.net.ssl.TrustManagerFactory;
 
 import common.DESEncrypter;
+import common.DepartmentPriorities;
 import common.FileTransport;
 
 /**
@@ -41,7 +41,7 @@ import common.FileTransport;
  *
  */
 public class AuthorizationServer implements Runnable {
-	public static final int SERVER_PORT					= 778;
+	public static final int SERVER_PORT					= 7778;
 	private static final int BAN_TIME					= 30000; // mili seconds
 	private static final String SECRET_KEY				= "config/auth/AuthSecretKey.ser";
 	static final String BANNED_ENCRYPTED				= "config/auth/banned";
@@ -49,7 +49,7 @@ public class AuthorizationServer implements Runnable {
 
 	static Logger logger = Logger.getLogger(AuthorizationServer.class.getName());
 
-	private Map<String, Integer> priorities;
+	private Hashtable<String, Integer> priorities;
 	private KeyStore serverKeyStore = null;
 	private KeyManagerFactory keyManagerFactory = null;
 	private TrustManagerFactory trustManagerFactory = null;
@@ -65,11 +65,9 @@ public class AuthorizationServer implements Runnable {
 	public AuthorizationServer () {
 		this.authKeystore 	  = System.getProperty("KeyStore");
 		this.authKeystorePass = System.getProperty("KeyStorePass");
-		this.priorities = new LinkedHashMap<String, Integer>();
-		this.priorities.put("HUMAN_RESOURCES", 1);
-		this.priorities.put("ACCOUNTING", 1);
-		this.priorities.put("IT", 2);
-		this.priorities.put("MANAGEMENT", 3);
+		
+		// Load the departments' priorities
+		this.priorities = DepartmentPriorities.initPriorities();
 	}
 
 	/**
@@ -304,7 +302,15 @@ public class AuthorizationServer implements Runnable {
 		}
 
 		// Check if a client has the right to download a file from the server
-		return "mama";
+		st.nextToken();
+		String newDept = st.nextToken();
+		String oldDept = st.nextToken();
+		System.out.println("Comparing " + newDept + " with " + oldDept);
+		int newPriority = this.priorities.get(newDept);
+		int oldPriority = this.priorities.get(oldDept);
+		if (newPriority <= oldPriority)
+			return FileTransport.OK;
+		return FileTransport.DENIED;
 	}
 
 	/**

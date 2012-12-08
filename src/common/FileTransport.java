@@ -15,6 +15,7 @@ public class FileTransport {
 	public static final String DENIED 	= "You don't have the rights";
 	public static final String BAN		= "This file name is forbidden. You are Banned!";
 	public static final String STILL_BANNED = "You are still banned. Try again later";
+	public static final String NO_SUCH_FILE	= "There is no file with the name: ";
 
 	/**
 	 * Send a file to a DataOutputStream

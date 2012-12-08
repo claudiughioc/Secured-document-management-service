@@ -71,9 +71,17 @@ public final class ClientThread implements Runnable {
 	public void serverDownload(String command) {
 		String responseToClient = FileTransport.OK;
 		String fileName = Server.STORAGE_DIRECTORY + command.substring(9);
+		File file = new File(fileName);
+		if (!file.exists()) {
+			pw.println(FileTransport.NO_SUCH_FILE + fileName);
+			pw.flush();
+			return;
+		}
 
 		// Check if the client has the rights to download this file
-		responseToClient = communicateWithAuth("ALLOW " + clientDetails.name + " " + clientDetails.department);
+		responseToClient = communicateWithAuth("ALLOW " +
+				clientDetails.department + " " +
+				Server.storageDetails.getFileDepartment(fileName));
 		
 		// Check if the client is banned
 		String response = communicateWithAuth("REQ_BAN " + clientDetails.name);
@@ -99,17 +107,20 @@ public final class ClientThread implements Runnable {
 	public void serverUpload(String command) {
 		String responseToClient = FileTransport.OK;
 		String fileName = Server.STORAGE_DIRECTORY + command.substring(7);
-		
-		// Add the file information to the encrypted file
-		// Also check if the server should accept the new file
-		if (!Server.storageDetails.storeUploadDetails(fileName, clientDetails))
-			responseToClient = FileTransport.DENIED;
 			
 		// Check the file name in the banned words list
 		if (checkFileName(fileName)) {
 			responseToClient = "This file name is forbidden. You are Banned!";
 			communicateWithAuth("BAN " + clientDetails.name);
+			pw.println(responseToClient);
+			pw.flush();
+			return;
 		}
+		
+		// Add the file information to the encrypted file
+		// Also check if the server should accept the new file
+		if (!Server.storageDetails.storeUploadDetails(fileName, clientDetails))
+			responseToClient = FileTransport.DENIED;
 		System.out.println("Upload response: " + responseToClient);
 		pw.println(responseToClient);
 		pw.flush();

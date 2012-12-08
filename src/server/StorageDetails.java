@@ -114,7 +114,7 @@ public class StorageDetails {
 	 */
 	public boolean updateFileInformation(String fileName, ClientDetails clientDetails, String decryptedFile) throws IOException {
 		String info = fileName + " " + clientDetails.name + " " + clientDetails.department;
-		String currFile, currClient, currDept;
+		String currFile, currDept;
 		boolean updated = true, clientFound = false;
 		try{
 			// Open the decrypted file
@@ -130,7 +130,7 @@ public class StorageDetails {
 			while ((strLine = br.readLine()) != null) {
 				StringTokenizer st = new StringTokenizer(strLine, " \t,");
 				currFile = st.nextToken();
-				currClient = st.nextToken();
+				st.nextToken();
 				currDept = st.nextToken();
 				// Skip different files
 				if (!currFile.equals(fileName)) {
@@ -175,5 +175,45 @@ public class StorageDetails {
 		file = new File(decryptedFile + ".cpy");
 		file.renameTo(new File(decryptedFile));
 		return true;
+	}
+
+	/**
+	 * Returns the department of the owner of a file
+	 * @param fileName
+	 * @return
+	 */
+	public String getFileDepartment(String fileName) {
+		String dept = "NO_DEPT_FOUND", currFile, currDept;
+		try {
+			// Decrypt the file
+			if (!desHelper.decrypt(new FileInputStream(fileDetailsName), new FileOutputStream(fileDetailsName + ".tmp")))
+				return dept;
+			
+			// Open the decrypted file
+			FileInputStream fstream = new FileInputStream(fileDetailsName + ".tmp");
+			DataInputStream in = new DataInputStream(fstream);
+			BufferedReader br = new BufferedReader(new InputStreamReader(in));
+			String strLine;
+			
+			// Read File Line By Line
+			while ((strLine = br.readLine()) != null) {
+				StringTokenizer st = new StringTokenizer(strLine, " \t,");
+				currFile = st.nextToken();
+				st.nextToken();
+				currDept = st.nextToken();
+				if (currFile.equals(fileName))
+					dept = currDept;
+			}
+			br.close();
+			in.close();
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		System.out.println("For file " + fileName + " found dept " + dept);
+		// Delete the decrypted file
+		File temp = new File(fileDetailsName + ".tmp");
+		temp.delete();
+		return dept;
 	}
 }

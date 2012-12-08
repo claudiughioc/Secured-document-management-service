@@ -21,7 +21,7 @@
 			</classpath>
             <jvmarg value="-DKeyStore=resources/server/server.ks"/>
 			<jvmarg value="-DKeyStorePass=server_password"/>
-			<arg value="777"/>
+			<arg value="7777"/>
 			<arg value="localhost"/>
 		</java>
 	</target>
@@ -34,7 +34,7 @@
             <jvmarg value="-DKeyStore=resources/client/claudiu/claudiu.ks"/>
 			<jvmarg value="-DKeyStorePass=claudiu_password"/>
 			<arg value="localhost"/>
-			<arg value="777"/>
+			<arg value="7777"/>
 			<arg value="claudiu"/>
 		</java>
 	</target>
@@ -47,7 +47,7 @@
             <jvmarg value="-DKeyStore=resources/client/client1/client1.ks"/>
 			<jvmarg value="-DKeyStorePass=client1_password"/>
 			<arg value="localhost"/>
-			<arg value="777"/>
+			<arg value="7777"/>
 			<arg value="client1"/>
 		</java>
 	</target>
@@ -60,7 +60,7 @@
             <jvmarg value="-DKeyStore=resources/client/client2/client2.ks"/>
 			<jvmarg value="-DKeyStorePass=client2_password"/>
 			<arg value="localhost"/>
-			<arg value="777"/>
+			<arg value="7777"/>
 			<arg value="client2"/>
 		</java>
 	</target>
@@ -73,7 +73,7 @@
             <jvmarg value="-DKeyStore=resources/client/client3/client3.ks"/>
 			<jvmarg value="-DKeyStorePass=client3_password"/>
 			<arg value="localhost"/>
-			<arg value="777"/>
+			<arg value="7777"/>
 			<arg value="client3"/>
 		</java>
 	</target>

@@ -1,11 +1,8 @@
 package server;
 
-import java.io.BufferedReader;
-import java.io.DataInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -13,7 +10,6 @@ import java.security.KeyStore;
 import java.security.cert.Certificate;
 import java.security.cert.X509Certificate;
 import java.util.Hashtable;
-import java.util.StringTokenizer;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
@@ -27,6 +23,8 @@ import javax.net.ssl.SSLServerSocketFactory;
 import javax.net.ssl.SSLSocket;
 import javax.net.ssl.TrustManagerFactory;
 
+import common.DepartmentPriorities;
+
 /**
  * O clasa server ce accepta conexiuni TLS.
  * @author Claudiu Ghioc claudiu.ghioc@gmail.com
@@ -34,7 +32,7 @@ import javax.net.ssl.TrustManagerFactory;
  */
 public class Server implements Runnable {
 	public static final String END_OF_MESSAGE		 = "###";
-	public static final String STORAGE_DIRECTORY	 = "resources/storage/";
+	public static final String STORAGE_DIRECTORY	 = "resources/server/storage/";
 	public static final String FILE_STORAGE_DETAILS	 = "config/server/file_details";
 	static final String SECRET_KEY			 		 = "config/server/SecretKey.ser";
 	public static final String PRIORITIES			 = "config/server/priorities.txt";
@@ -61,7 +59,7 @@ public class Server implements Runnable {
 	static String name, authServer;
 	private File storage;
 	public static StorageDetails storageDetails = null;
-	public static Hashtable<String, Integer> priorities;
+	static Hashtable<String, Integer> priorities;
 
 	/**
 	 * Constructor.
@@ -82,7 +80,7 @@ public class Server implements Runnable {
 		storageDetails = new StorageDetails(FILE_STORAGE_DETAILS);
 
 		// Initiate priorities for departments
-		initPriorities();
+		Server.priorities = DepartmentPriorities.initPriorities();
 	}
 
 	/**
@@ -167,11 +165,11 @@ public class Server implements Runnable {
 				try {
 					((SSLSocket) s).startHandshake();
 				} catch (IOException e) {
-					logger.severe("[" + this.name + "] Failed to complete a handshake");
+					logger.severe("[" + Server.name + "] Failed to complete a handshake");
 					e.printStackTrace();
 					continue;	
 				}
-				logger.info("[" + this.name + "] Successful handshake");
+				logger.info("[" + Server.name + "] Successful handshake");
 
 				// Get the client's certificate
 				X509Certificate[] peerCertificates = null;
@@ -182,17 +180,17 @@ public class Server implements Runnable {
 						continue;
 					}
 				} catch (Exception e) {
-					logger.severe("[" + this.name + "] Failed to get peer certificates");
+					logger.severe("[" + Server.name + "] Failed to get peer certificates");
 					e.printStackTrace();
 					continue;
 				}
 
 				// Check if the client's certificate has the same CA
 				if (CACertificate.equals(peerCertificates[1])) {
-					logger.info("[" + this.name + "] The peer's CA certificate matches this server's CA certificate");
+					logger.info("[" + Server.name + "] The peer's CA certificate matches this server's CA certificate");
 				}
 				else {
-					logger.severe("[" + this.name + "] The peer's CA certificate doesn't match this server's CA certificate");
+					logger.severe("[" + Server.name + "] The peer's CA certificate doesn't match this server's CA certificate");
 					continue;
 				}
 
@@ -216,32 +214,6 @@ public class Server implements Runnable {
 			ss.close();
 		} catch (Exception ex) {}
 		ss = null;
-	}
-
-	/**
-	 * Initiates the Hashtable with departments - priority
-	 */
-	public void initPriorities() {
-		Server.priorities = new Hashtable<String, Integer>();
-		String dept = "";
-		int priority;
-		try{
-			FileInputStream fstream = new FileInputStream(Server.PRIORITIES);
-			DataInputStream in = new DataInputStream(fstream);
-			BufferedReader br = new BufferedReader(new InputStreamReader(in));
-			String strLine;
-
-			// Read File Line By Line
-			while ((strLine = br.readLine()) != null) {
-				StringTokenizer st = new StringTokenizer(strLine, " \t,");
-				dept = st.nextToken();
-				priority = Integer.parseInt(st.nextToken());
-				Server.priorities.put(dept, priority);
-			}
-			in.close();
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
 	}
 
 	public static void main(String args[]) {

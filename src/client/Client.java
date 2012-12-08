@@ -29,7 +29,7 @@ public class Client extends Thread{
 	/** Logger used by this class */
 	private static Logger logger = Logger.getLogger(Client.class.getName());
 
-	private static final String CLIENT_DIRECTORY = "resources/download/";
+	private String clientDirectory;
 	private BufferedReader br;
 	private DataOutputStream dos;
 	private DataInputStream dis;
@@ -46,6 +46,7 @@ public class Client extends Thread{
 	 */
 	public Client(String hostname, int port, String name) {
 		this.name = name;
+		clientDirectory = "resources/client/" + name + "/download/";
 		try {
 		createSSLConnection(hostname, port);
 		} catch (Exception e) {
@@ -190,7 +191,7 @@ public class Client extends Thread{
 	 */
 	public void downloadCommand(String command) {
 		// Get the file to download
-		String fileName = CLIENT_DIRECTORY + command.substring(9);
+		String fileName = clientDirectory + command.substring(9);
 		
 		// Send the command
 		pw.println(command);
@@ -218,7 +219,7 @@ public class Client extends Thread{
 	 */
 	public void uploadCommand(String command) {
 		// Get the file to upload
-		String fileName = CLIENT_DIRECTORY + command.substring(7);
+		String fileName = clientDirectory + command.substring(7);
 		
 		// Send the command
 		pw.println(command);
