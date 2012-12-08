@@ -1,0 +1,123 @@
+GHIOC CONSTANTIN CLAUDIU - 341 C1
+Sisteme de programe pentru retele de calculatoare - Tema 3
+
+                        SERVICIU SECURIZAT DE GESTIUNE A DOCUMENTELOR
+
+1.  ENUNT
+2.  STRUCTURA PROIECTULUI
+3.  UTILIZARE
+4.  IMPLEMENTARE
+5.  CONTINUTUL ARHIVEI
+
+
+1.  ENUNT
+    Se cere implementarea unui sistem de gestiune a documentelor. Sistemul este format din aplicatii client, o aplicatie server si un Serviciu de Autorizare. Clientii se conecteaza la server folosind o conexiune SSL cu autentificare bidirectionala si au rolul de a citi documente si de a incarca pe server noi documente. Comenzile posibile sunt: list, upload <file>, download <file>.
+
+
+2.  STRUCTURA PROIECTULUI
+    Codul sursa al proiectului este in folderul "src" si este grupat in pachete dupa functionalitatea fiecarei aplicatii: authorization_server, server, client si common.
+
+    Scriptul "prerequisites.sh" construieste structura de directoare "resources" unde vor fi stocate certificatele, keystore-urile si resursele specifice fiecarei aplicatii. In acest director vor fi alte 4 directoare: authorization_server si certification_authority vor contine doar fisierele ce tin de securitate. Directorul client contine cate un director pentru fiecare client in parte ce va contine folderul "downloads" si fisierele de securitate. Folderul "server" contine aceleasi tipuri de fisiere, plus un alt director, "storage", unde se vor stoca fisierele primite de la clienti.
+------------------------------------------------------------------------------------------------
+    resources - certification_authority     -   "security_files"
+                ---------------------------------------------------------------------------------
+              - authorization_server        -   "security_files"
+                ---------------------------------------------------------------------------------
+              - server                      -   "security_files"
+                                            -   storage             -   file1
+                                                                    -   file2
+                                                                    -   file3
+                                            -   "security_files"
+                ---------------------------------------------------------------------------------
+              - client                      -   claudiu             -   downloads
+                                                                    -   "security_files"
+                                            -----------------------------------------------------
+                                            -   client1             -   downloads
+                                                                    -   "security_files"
+                                            -----------------------------------------------------
+                                            -   client2             -   downloads
+                                                                    -   "security_files"
+------------------------------------------------------------------------------------------------
+
+    Folderul "config" contine fisiere de configurare si fisiere cu informatii criptate pentru server si pentru serviciul de autorizare. Astfel in directorul "auth" se va salva fisierul criptat "banned" cu lista clientilor banati, iar in directorul "server" se afla fisierele:
+    *   "banned_words.txt"  - unde se pot adauga cuvinte ce vor fi folosite ca filtre de catre server
+    *   "priorities.txt"    - de unde atat serverul cat si serviciul de autorizare vor citi piroritatile departamentelor
+                            - se introduce pentru fiecare departament o linie de forma: <departamanet> <prioritate>
+                            - prioritatea cea mai mare este 0, prioritatea mai mica o are un numar mai mare
+    *   "file_details"      - fisierul criptat cu informatii despre fisierele upload-ate de catre clienti
+    *   "SecretKey.ser"     - cheia secreta folosita de server pentru a cripta / decripta
+
+------------------------------------------------------------------------------------------------
+    config  - auth      -   banned
+                        -   AuthSecretKey.ser
+              ----------------------------------------------------------------------------------
+            - server    -   banned_words.txt
+                        -   priorities.txt
+                        -   file_details
+                        -   SecretKey.ser
+------------------------------------------------------------------------------------------------
+
+    La pornirea clientilor si executarea comenzii "list" acestia vor putea vedea fisierele stocate in folderul "resources/server/storage". Clientul incarca fisiere pe server din directorul sau "downloads". De ex. clientul "claudiu" incarca fisierul "resources/client/claudiu/downloads/c1" si va ajunge pe server in "resources/server/storage/c1". In acelasi mod comanda "download c2" preia documentul "resources/server/storage/c2" in "resources/client/claudiu/downloads/c2".
+
+
+
+
+3.  UTILIZARE
+    Pentru a rula un test fisierul "build.xml" pune la dispozitie urmatoarele posibilitati:
+    *   ant server  -   porneste serverul ce asculta conexiuni de la client pe portul 7777
+    *   ant auth    -   porneste serviciul de autorizare ce primeste conexiuni de la server pe portul 7778
+    *   ant client  -   porneste utilizatorul default "claudiu" cu resurse in "resources/client/claudiu"
+    *   ant client1 ... ant client3 - porneste clienti cu numele "clientx" cu resurse in "resources/client/clientx/"
+
+    Inainte de a rula un test trebuie executate scripturile:
+    *   ./prerequisites.sh  -   creeaza structura de directoare "resources", certificatele certification_authority si authorization_server
+    *   ./server.sh         -   creeaza certificatele serverului
+    *   ./client.sh claudiu upb
+    *   ./client.sh client1 ase
+    *   ./client.sh client2 unibuc
+    *   ./client.sh client3 firma
+    
+    La rularea unui client ("ant client1") se pot executa oricare din comenzile: 
+    *   "list";
+    *   "upload <file>" (unde <file> este un fisier in "resources/client/client1/downloads/");
+    *   "download <file2>" (unde <file2> este un fisier in "resources/server/storage");
+
+
+4.  IMPLEMENTARE
+    CLIENT:
+    Clientul este un thread care creeaza o conexiune SSL cu serverul si asteapta comenzi de la consola. Le trimite catre server folosind un PrintWriter si asteapta raspunsuri de la server. Eventual trimite / primeste fisiere folosind clasa FileTransport ce expune doua metode: sendFile si receiveFile. Rezultatele sunt afisate in consola.
+
+
+    SERVER:
+    Clasa Server reprezinta implementarea serverului. La constructie acesta initializeaza un SSL context si asteapta conexiuni de la client. De asemenea initializeaza si un hashtable cu prioritati pentru fiecare departament (incarcat din "config/server/priorities.txt") si un obiect de tip StorageDetails unde va prelucra informatii despre fisierele uploadate de clienti. La realizarea unei conexiuni acesta porneste un alt thread, ClientThread, ce va interpreta comenzile de la
+    clienti.
+
+    Clasa ClientThread primeste comenzi de la clienti si le interpreteaza.
+    Pentru "list" deschide directorul "resources/server/storage" si listeaza continutul acestuia.
+    Pentru "upload <file>" initial verifica daca numele noului fisier se afla in lista cuvintelor banate, caz in care va bana clientul, adauga / inlocuieste detaliile despre fisier si owner folosind clasa StorageDetails. Aici poate refuza un upload daca in "storage" se afla un fisier de la un departament cu prioritate mai mare. La final, daca totul e ok, salveaza fisierul in "storage".
+    Pentru "download <file>" initial verifica daca exista fisierul dat ca parametru in "storage" apoi daca respectivul client are dreptul de a descarca fisierul (in functie de prioritatea departamentului sau). La final verifica daca utilizatorul este "banned", caz in care va refuza cererea clientului. Daca totul e ok, va trimite fisierul folosind aceeasi clasa, FileTransport.
+    Pentru a trimite comenzi catre serviciul de autorizare se foloseste metoda "communicateWithAuth" care primeste comenzi precum:
+    * "ALLOW new_department old_department" care intreaba serviciul daca un client din departamentul "new_department" are voie sa suprascrie un fisier existent al clientului din "old_department";
+    * "REQ_BAN clientName"  - intreaba serviciul daca un client este banned;
+    * "BAN clientName"      - adauga un client pe lista de utilizatori banned.
+
+    Clasa StorageDetails expune cateva metode pentru interactiunea cu fisierul criptat ce contine detalii despre upload-uri.
+    Metoda "storeUploadDetails" salveaza / inlocuieste (in functie de prioritatea departamentului clientului) informatii despre client, departament si numele fisierului. Initial decripteaza fisierul "file_details" folosind clasa comuna DESEncrypter, il parcurge, iar dupa ce adauga informatiile, in cripteaza din nou si sterge fisierul decriptat.
+    Metoda "getFileDepartment" returneaza departamentul owner-ului unui fisier care a fost stocat pe server. Aceasta metoda este folosita pentru a verifica daca un utilizator are dreptul sa suprascrie un fisier existent.
+
+    Clasa AuthorizationServer creeaza conexiuni cu serverul pe portul 7778 si interpreteaza cereri venite de la acesta.
+    * pentru comanda "BAN clientName" adauga un client pe lista utilizatorilor banned si porneste un BannedTimerTask pentru a-l scoate din aceasta lista dupa 30s. Pentru a interactiona cu fisierul criptat "config/auth/banned" se foloseste aceeasi clasa DESEncrypter.
+    * pentru comanda "REQ_BAN clientName" aplicatia parcurge fisierul "banned" si verifica daca un client este in aceasta lista;
+    * pentru comanda "ALLOW new_department old_department" serverul verifica daca departamentul nou are o prioritate mai mare decat departamentul vechi, in caz de suprascriere a unui fisier existent pe server.
+
+    Pentru criptarea am ales algoritmul DES folosind clasa DESEncrypter din exemplul 6.
+
+
+5.  CONTINUTUL ARHIVEI
+    *   "src"
+    *   scripturile de initializare: prerequisites.sh, client.sh, server.sh
+    *   build.xml
+    *   structura de directoare "resources" cu 4 clienti (claudiu, client1 ... client3)
+    *   directorul "config" cu configuratiile default pentru server si serviciul de autentificare
+    *   fisierul "README"
+
