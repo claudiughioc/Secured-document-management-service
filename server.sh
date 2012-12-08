@@ -2,7 +2,8 @@
 
 rm -rf resources/server/*
 rmdir resources/server/
-mkdir resources/server
+mkdir resources/server/
+mkdir resources/server/storage/
 
 # the certificate of the certification authority
 CA_certificate="resources/certification_authority/ca.pem"

@@ -47,18 +47,6 @@ touch config/server/file_details
 rm -f config/auth/banned
 touch config/auth/banned
 
-# Create some test files
-mkdir resources/storage
-echo "test" > resources/storage/s1
-echo "test" > resources/storage/s2
-echo "test" > resources/storage/s3
-echo "test" > resources/storage/s4
-mkdir resources/download
-echo "test" > resources/download/c1
-echo "test" > resources/download/c2
-echo "test" > resources/download/c3
-echo "test" > resources/download/c4
-
 # create a private key and certificate request for the certification authority
 # (X.509 Certificate Signing Request (CSR) Management); generate a new rsa key on 1024 bits; don't encrypt the output key; specify the output file and the file to send the key to; do not ask anyting during request generation
 echo "----------------------------------------------------------------------------"

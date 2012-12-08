@@ -6,6 +6,11 @@ if test $# -ne 2; then
 fi
 rm -rf resources/client/$1
 mkdir resources/client/$1
+mkdir resources/client/$1/download/
+echo "test" > resources/client/$1/download/c1
+echo "test" > resources/client/$1/download/c2
+echo "test" > resources/client/$1/download/c3
+echo "test" > resources/client/$1/download/c4
 
 # the certificate of the certification authority
 CA_certificate="resources/certification_authority/ca.pem"
