@@ -203,6 +203,7 @@ public class Client extends Thread{
 				FileTransport.receiveFile(fileName, dis);
 			else {
 				System.out.println("-- the download has been rejected by the server");
+				System.out.println(message);
 				return;
 			}
 		} catch (IOException e) {

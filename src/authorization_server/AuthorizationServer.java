@@ -30,6 +30,7 @@ import javax.net.ssl.SSLSocket;
 import javax.net.ssl.TrustManagerFactory;
 
 import common.DESEncrypter;
+import common.FileTransport;
 
 /**
  * The Authorization Server 
@@ -288,14 +289,29 @@ public class AuthorizationServer implements Runnable {
 	 */
 	public String processRequest(String request) {
 		StringTokenizer st = new StringTokenizer(request, " ");
+		
+		// Add a client to the banned list
 		if (request.startsWith("BAN")) {
 			st.nextToken();
 			ban(st.nextToken());
+			return FileTransport.OK;
 		}
+
+		// Check if a client is banned
+		if (request.startsWith("REQ_BAN")) {
+			st.nextToken();
+			return isBanned(st.nextToken());
+		}
+
+		// Check if a client has the right to download a file from the server
 		return "mama";
 	}
 
-	private void ban (String clientName) {
+	/**
+	 * Adds a client to the banned list
+	 * @param clientName
+	 */
+	private void ban(String clientName) {
 		System.out.println("Banning " + clientName);
 		try {
 			if (!crypt.decrypt(new FileInputStream(BANNED_ENCRYPTED), new FileOutputStream(BANNED_DECRYPTED))) {
@@ -332,10 +348,43 @@ public class AuthorizationServer implements Runnable {
 			e.printStackTrace();
 			return;
 		}
+		
 		// delete the decryption
 		File temp = new File(BANNED_DECRYPTED);
 		temp.delete();
 		return;
+	}
+	
+	/**
+	 * Check if a client is on the banned list
+	 * @param clientName
+	 * @return
+	 */
+	public String isBanned(String clientName) {
+		System.out.println("Checking ban state for " + clientName);
+		String response = FileTransport.OK;
+		byte[] buffer = new byte[1024];
+		try {
+			if (!crypt.decrypt(new FileInputStream(AuthorizationServer.BANNED_ENCRYPTED), new FileOutputStream(AuthorizationServer.BANNED_DECRYPTED))) {
+				return FileTransport.OK;	
+			}
+			FileInputStream in = new FileInputStream(AuthorizationServer.BANNED_DECRYPTED);
+			in.read(buffer);
+			in.close();
+			String info = new String(buffer);
+			if (info.indexOf(clientName) == -1)
+				response = FileTransport.NO;
+			else
+				response = FileTransport.OK;	
+		} catch (Exception e) {
+			logger.severe("Failed to find out if client '" + clientName + "' is banned or not");
+			e.printStackTrace();
+			return FileTransport.OK;	
+		}
+		// delete the decryption
+		File temp = new File(AuthorizationServer.BANNED_DECRYPTED);
+		temp.delete();
+		return response;
 	}
 
 	public static void main (String args[]) {

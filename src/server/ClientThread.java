@@ -72,10 +72,16 @@ public final class ClientThread implements Runnable {
 		String responseToClient = FileTransport.OK;
 		String fileName = Server.STORAGE_DIRECTORY + command.substring(9);
 
-		String response = communicateWithAuth("Hello");
-		System.out.println("Sent hello to auth, got " + response);
+		// Check if the client has the rights to download this file
+		responseToClient = communicateWithAuth("ALLOW " + clientDetails.name + " " + clientDetails.department);
+		
+		// Check if the client is banned
+		String response = communicateWithAuth("REQ_BAN " + clientDetails.name);
+		if (response.equals(FileTransport.OK))
+			responseToClient = FileTransport.STILL_BANNED;
 		
 		// Send the file to the client
+		System.out.println("Download response to client: " + responseToClient);
 		pw.println(responseToClient);
 		pw.flush();
 

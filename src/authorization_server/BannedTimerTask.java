@@ -54,9 +54,11 @@ public class BannedTimerTask extends TimerTask {
 			e.printStackTrace();
 			return;
 		}
+		/*
 		// delete the decryption
 		File temp = new File(AuthorizationServer.BANNED_DECRYPTED);
 		temp.delete();
+		*/
 		return;
 	}
 
@@ -73,7 +75,6 @@ public class BannedTimerTask extends TimerTask {
 
 			// Read File Line By Line
 			while ((strLine = br.readLine()) != null) {
-				System.out.println("Initial line " + strLine);
 				StringTokenizer st = new StringTokenizer(strLine, " \t,");
 				String currClient = st.nextToken();
 				String time = st.nextToken();
