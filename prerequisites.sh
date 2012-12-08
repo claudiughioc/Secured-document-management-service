@@ -41,10 +41,12 @@ mkdir resources/certification_authority
 
 # Create the config file to store information about the incoming files
 rm -f config/server/file_details
+rm -f config/server/SecretKey.ser
 touch config/server/file_details
 
 # Create the banned clients list for Authorization Server
 rm -f config/auth/banned
+rm -f config/auth/AuthSecretKey.ser
 touch config/auth/banned
 
 # create a private key and certificate request for the certification authority

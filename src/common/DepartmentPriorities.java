@@ -9,6 +9,12 @@ import java.util.StringTokenizer;
 
 import server.Server;
 
+/**
+ * Holds the priorities for each department in a hashtable
+ * This class will be used by both the Server and the Authorization Server
+ * @author Claudiu Ghioc claudiu.ghioc@gmail.com
+ *
+ */
 public class DepartmentPriorities {
 	public static final String PRIORITIES	= "config/server/priorities.txt";
 	

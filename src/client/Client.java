@@ -25,6 +25,11 @@ import server.Server;
 
 import common.FileTransport;
 
+/**
+ * Client application
+ * @author Claudiu Ghioc claudiu.ghioc@gmail.com
+ *
+ */
 public class Client extends Thread{
 	/** Logger used by this class */
 	private static Logger logger = Logger.getLogger(Client.class.getName());
@@ -37,7 +42,7 @@ public class Client extends Thread{
 	private PrintWriter pw;
 	private SSLSocket s;
 	private Certificate CACertificate = null;
-	
+
 	/**
 	 * Constructor for Client
 	 * Initialize connection to the server
@@ -48,12 +53,12 @@ public class Client extends Thread{
 		this.name = name;
 		clientDirectory = "resources/client/" + name + "/download/";
 		try {
-		createSSLConnection(hostname, port);
+			createSSLConnection(hostname, port);
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
 	}
-	
+
 	/**
 	 * Create the SSL connection to the server
 	 * @param address
@@ -306,7 +311,7 @@ public class Client extends Thread{
         }
         System.out.println("From client everything is closed now");
 	}
-	
+
 	public static void main (String [] args) {
 		String hostname;
 		int port;

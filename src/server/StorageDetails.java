@@ -21,6 +21,7 @@ import common.DESEncrypter;
 
 /**
  * Contains information about the files saved on the server
+ * 
  * @author Claudiu Ghioc claudiu.ghioc@gmail.com
  *
  */
@@ -32,24 +33,27 @@ public class StorageDetails {
 	public StorageDetails(String fileDetailsName) {
 		this.fileDetailsName = fileDetailsName;
 		SecretKey key = null;
-        try {
-            ObjectInputStream in = new ObjectInputStream(new FileInputStream(Server.SECRET_KEY));
-            key = (SecretKey)in.readObject();
-            in.close();
-        } catch (FileNotFoundException fnfe) {
-        	// generate a cryptographic key
-        	try {
+		try {
+			// Try to open an existing secret key
+			ObjectInputStream in = new ObjectInputStream(new FileInputStream(Server.SECRET_KEY));
+			key = (SecretKey)in.readObject();
+			in.close();
+		} catch (FileNotFoundException fnfe) {
+			// generate a cryptographic key
+			try {
 				key = KeyGenerator.getInstance("DES").generateKey();
-	            ObjectOutputStream out = new ObjectOutputStream(new FileOutputStream(Server.SECRET_KEY));
-	            out.writeObject(key);
-	            out.close();
-        	} catch (Exception e) {
-        		e.printStackTrace();
-        	}
-        } catch (Exception e) {
-        	e.printStackTrace();
-        }
-        desHelper = new DESEncrypter(key);
+				ObjectOutputStream out = new ObjectOutputStream(new FileOutputStream(Server.SECRET_KEY));
+				out.writeObject(key);
+				out.close();
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		// Create a DES encrypter
+		desHelper = new DESEncrypter(key);
 	}
 
 	/**
@@ -65,18 +69,18 @@ public class StorageDetails {
 			logger.severe("The client's department is unknown. Adding default priority: " + Server.DEFAULT_DEPT_PRIORITY);
 			Server.priorities.put(clientDetails.department, Server.DEFAULT_DEPT_PRIORITY);
 		}
-		
+
 		logger.info("Storing upload info for file " + fileName + " client " + clientDetails);
-		
+
 		try {
 			// Decrypt the file
 			if (!desHelper.decrypt(new FileInputStream(fileDetailsName), new FileOutputStream(fileDetailsName + ".tmp")))
 				return false;	
-			
+
 			// Add or replace the client and file information
 			if(!updateFileInformation(fileName, clientDetails, fileDetailsName + ".tmp"))
 				return false;
-			
+
 			// Delete the old encryption
 			File file = new File(fileDetailsName);
 			file.delete();
@@ -94,11 +98,9 @@ public class StorageDetails {
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
-		// TODO delete the decryption
-		/*
+		// delete the decryption
 		File temp = new File(fileDetailsName + ".tmp");
 		temp.delete();
-		*/
 		return true;
 	}
 
@@ -116,65 +118,68 @@ public class StorageDetails {
 		String info = fileName + " " + clientDetails.name + " " + clientDetails.department;
 		String currFile, currDept;
 		boolean updated = true, clientFound = false;
-		try{
-			// Open the decrypted file
-			FileInputStream fstream = new FileInputStream(decryptedFile);
-			DataInputStream in = new DataInputStream(fstream);
-			BufferedReader br = new BufferedReader(new InputStreamReader(in));
-			String strLine;
-			
-			// Open a new temporary file
-			PrintWriter prw = new PrintWriter(new FileOutputStream(new File(decryptedFile + ".cpy")));
 
-			// Read File Line By Line
-			while ((strLine = br.readLine()) != null) {
-				StringTokenizer st = new StringTokenizer(strLine, " \t,");
-				currFile = st.nextToken();
-				st.nextToken();
-				currDept = st.nextToken();
-				// Skip different files
-				if (!currFile.equals(fileName)) {
-					prw.println(strLine);
-					continue;
+		synchronized (ClientThread.class) {
+			try {
+				// Open the decrypted file
+				FileInputStream fstream = new FileInputStream(decryptedFile);
+				DataInputStream in = new DataInputStream(fstream);
+				BufferedReader br = new BufferedReader(new InputStreamReader(in));
+				String strLine;
+
+				// Open a new temporary file
+				PrintWriter prw = new PrintWriter(new FileOutputStream(new File(decryptedFile + ".cpy")));
+
+				// Read File Line By Line
+				while ((strLine = br.readLine()) != null) {
+					StringTokenizer st = new StringTokenizer(strLine, " \t,");
+					currFile = st.nextToken();
+					st.nextToken();
+					currDept = st.nextToken();
+					// Skip different files
+					if (!currFile.equals(fileName)) {
+						prw.println(strLine);
+						continue;
+					}
+					clientFound = true;
+					int currPriority = Server.priorities.get(currDept);
+					int newPriority = Server.priorities.get(clientDetails.department);
+					if (newPriority <= currPriority) {
+						System.out.println("Storage: replacing file info in config");
+						prw.println(info);
+					} else {
+						System.out.println("Storage: the new client is dumber than the previous one");
+						prw.println(strLine);
+						updated = false;
+					}
 				}
-				clientFound = true;
-				int currPriority = Server.priorities.get(currDept);
-				int newPriority = Server.priorities.get(clientDetails.department);
-				if (newPriority <= currPriority) {
-					System.out.println("Storage: replacing file info in config");
+				if (!clientFound) {
 					prw.println(info);
-				} else {
-					System.out.println("Storage: the new client is dumber than the previous one");
-					prw.println(strLine);
-					updated = false;
+					updated = true;
 				}
+				prw.close();
+				br.close();
+				in.close();
+			} catch (Exception e) {
+				e.printStackTrace();
 			}
-			if (!clientFound) {
-				prw.println(info);
-				updated = true;
+
+
+			if (!updated) {
+				System.out.println("Storage: the server should refuse");
+				return false;
 			}
-			prw.close();
-			br.close();
-			in.close();
-		} catch (Exception e) {
-			e.printStackTrace();
+			System.out.println("Storage: the server should accept");
+
+			// Delete the old configuration file
+			File file = new File(decryptedFile);
+			file.delete();
+
+			// Replace it with the new one
+			file = new File(decryptedFile + ".cpy");
+			file.renameTo(new File(decryptedFile));
+			return true;
 		}
-		
-		
-		if (!updated) {
-			System.out.println("Storage: the server should refuse");
-			return false;
-		}
-		System.out.println("Storage: the server should accept");
-		
-		// Delete the old configuration file
-		File file = new File(decryptedFile);
-		file.delete();
-		
-		// Replace it with the new one
-		file = new File(decryptedFile + ".cpy");
-		file.renameTo(new File(decryptedFile));
-		return true;
 	}
 
 	/**
@@ -188,29 +193,32 @@ public class StorageDetails {
 			// Decrypt the file
 			if (!desHelper.decrypt(new FileInputStream(fileDetailsName), new FileOutputStream(fileDetailsName + ".tmp")))
 				return dept;
-			
+
 			// Open the decrypted file
 			FileInputStream fstream = new FileInputStream(fileDetailsName + ".tmp");
 			DataInputStream in = new DataInputStream(fstream);
 			BufferedReader br = new BufferedReader(new InputStreamReader(in));
 			String strLine;
-			
+
 			// Read File Line By Line
 			while ((strLine = br.readLine()) != null) {
 				StringTokenizer st = new StringTokenizer(strLine, " \t,");
 				currFile = st.nextToken();
 				st.nextToken();
 				currDept = st.nextToken();
+
+				// Store the current department of the file
 				if (currFile.equals(fileName))
 					dept = currDept;
 			}
 			br.close();
 			in.close();
-			
+
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
 		System.out.println("For file " + fileName + " found dept " + dept);
+
 		// Delete the decrypted file
 		File temp = new File(fileDetailsName + ".tmp");
 		temp.delete();

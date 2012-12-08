@@ -23,7 +23,7 @@ public class BannedTimerTask extends TimerTask {
 		this.server = server;
 		this.clientName = clientName;	
 	}
-	
+
 	public void run () {
 		AuthorizationServer.logger.info("REMOVING THE BAN FOR CLIENT '" + this.clientName);
 		try {
@@ -54,14 +54,16 @@ public class BannedTimerTask extends TimerTask {
 			e.printStackTrace();
 			return;
 		}
-		/*
 		// delete the decryption
 		File temp = new File(AuthorizationServer.BANNED_DECRYPTED);
 		temp.delete();
-		*/
 		return;
 	}
 
+	/**
+	 * Removes a client from the list with banned clients
+	 * @param clientName
+	 */
 	public void removeBannedClient(String clientName) {
 		try{
 			// Open the decrypted file

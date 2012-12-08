@@ -9,6 +9,12 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 
+/**
+ * Holds the methods to transport files between applications
+ * 
+ * @author Claudiu Ghioc claudiu.ghioc@gmail.com
+ *
+ */
 public class FileTransport {
 	public static final String OK 		= "OK";
 	public static final String NO		= "NO";

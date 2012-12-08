@@ -87,12 +87,12 @@ public final class ClientThread implements Runnable {
 		String response = communicateWithAuth("REQ_BAN " + clientDetails.name);
 		if (response.equals(FileTransport.OK))
 			responseToClient = FileTransport.STILL_BANNED;
-		
-		// Send the file to the client
+
 		System.out.println("Download response to client: " + responseToClient);
 		pw.println(responseToClient);
 		pw.flush();
 
+		// Send the file to the client
 		if (!responseToClient.equals(FileTransport.OK))
 			return;
 		FileTransport.sendFile(fileName, dos);
@@ -133,6 +133,7 @@ public final class ClientThread implements Runnable {
 			logger.log(Level.INFO, "Successfully uploaded " + fileName);
 
 	}
+
 	/**
 	 * Send the list of file to the client
 	 */
@@ -173,7 +174,7 @@ public final class ClientThread implements Runnable {
 		}
 		return false;
 	}
-	
+
 	/**
 	 * Closes the streams and the socket
 	 */
@@ -206,7 +207,7 @@ public final class ClientThread implements Runnable {
 	}
 
 	/**
-	 * send a message to the authorization server and wait for a response
+	 * Send a message to the authorization server and wait for a response
 	 * @param message
 	 * @return
 	 */
